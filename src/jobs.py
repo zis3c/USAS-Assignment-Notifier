@@ -96,7 +96,6 @@ async def poll_user_id(user_id: int, bot) -> int:
             )
 
         user.last_checked_at = get_utc_now()
-        logger.info("DEBUG: Setting last_checked_at (naive) for user %s", user.student_id)
         await session.commit()
 
     # Send notifications outside the DB session
