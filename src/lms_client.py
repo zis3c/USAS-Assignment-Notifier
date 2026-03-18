@@ -199,13 +199,13 @@ class LMSClient:
             )
 
         # Bypass SSL verification due to USAS LMS certificate chain issues on some environments
-        timeout = aiohttp.ClientTimeout(total=30)
+        timeout = aiohttp.ClientTimeout(total=60)
         async with aiohttp.ClientSession(
             cookie_jar=jar, 
             connector=aiohttp.TCPConnector(ssl=False),
             timeout=timeout
         ) as session:
-            html = await self._get_dashboard_html(session)
+            html, logged_in = await self._get_dashboard_html(session)
             sesskey = extract_sesskey(html)
             course_id, category_id, _ = extract_calendar_context(html)
 
@@ -221,18 +221,22 @@ class LMSClient:
             cookie = self._extract_session_cookie(session)
             return FetchResult(events=events, session_cookie=cookie, dashboard_html=html)
 
-    async def _get_dashboard_html(self, session: aiohttp.ClientSession) -> str:
+    async def _get_dashboard_html(self, session: aiohttp.ClientSession) -> Tuple[str, bool]:
+        """Fetch dashboard HTML, logging in if necessary."""
         dashboard_url = f"{config.LMS_BASE_URL}/my/"
         async with session.get(dashboard_url, allow_redirects=True) as resp:
+            html = await resp.text()
             final_url = str(resp.url)
+            
             if is_login_url(final_url):
                 logger.info("Session expired or missing for %s, logging in...", self.student_id)
-                await self._login(session)
-                async with session.get(dashboard_url, allow_redirects=True) as final_resp:
-                    return await final_resp.text()
-            return await resp.text()
+                login_html = await self._login(session)
+                return login_html, True
+            
+            return html, False
 
-    async def _login(self, session: aiohttp.ClientSession) -> None:
+    async def _login(self, session: aiohttp.ClientSession) -> str:
+        """Perform login and return the HTML of the landing page."""
         login_url = f"{config.LMS_BASE_URL}/login/index.php"
         async with session.get(login_url, allow_redirects=True) as resp:
             html = await resp.text()
@@ -245,10 +249,14 @@ class LMSClient:
         
         async with session.post(login_url, data=payload, allow_redirects=True) as resp:
             final_url = str(resp.url)
+            lms_html = await resp.text()
+            
             if is_login_url(final_url):
                 logger.warning("Login FAILED for %s (still at login URL: %s)", self.student_id, final_url)
+                return lms_html
             else:
                 logger.info("Login SUCCESS for %s", self.student_id)
+                return lms_html
 
     async def _fetch_calendar_events(
         self,
