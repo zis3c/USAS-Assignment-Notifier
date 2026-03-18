@@ -1,9 +1,14 @@
-"""Database engine, session factory, and schema initialisation."""
 import os
 import sqlite3
+from datetime import datetime, timezone
+from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+
+def get_utc_now() -> datetime:
+    """Return a naive UTC datetime."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 from src import config
 from src.models import Base
