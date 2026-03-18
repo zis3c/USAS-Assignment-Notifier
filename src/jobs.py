@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from src import config, strings
 from src.crypto import decrypt_text, encrypt_text
-from src.database import AsyncSessionLocal
+from src.database import AsyncSessionLocal, get_utc_now
 from src.lms_client import LMSClient, extract_user_name
 from src.models import User, UserEvent
 
@@ -95,7 +95,8 @@ async def poll_user_id(user_id: int, bot) -> int:
                 )
             )
 
-        user.last_checked_at = datetime.now(timezone.utc)
+        user.last_checked_at = get_utc_now()
+        logger.info("DEBUG: Setting last_checked_at (naive) for user %s", user.student_id)
         await session.commit()
 
     # Send notifications outside the DB session
