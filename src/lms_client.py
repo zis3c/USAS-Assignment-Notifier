@@ -199,7 +199,12 @@ class LMSClient:
             )
 
         # Bypass SSL verification due to USAS LMS certificate chain issues on some environments
-        async with aiohttp.ClientSession(cookie_jar=jar, connector=aiohttp.TCPConnector(ssl=False)) as session:
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(
+            cookie_jar=jar, 
+            connector=aiohttp.TCPConnector(ssl=False),
+            timeout=timeout
+        ) as session:
             html = await self._get_dashboard_html(session)
             sesskey = extract_sesskey(html)
             course_id, category_id, _ = extract_calendar_context(html)
