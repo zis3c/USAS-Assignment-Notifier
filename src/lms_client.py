@@ -200,8 +200,8 @@ class LMSClient:
                 response_url=URL(config.LMS_BASE_URL),
             )
 
-        ssl_context = ssl.create_default_context(cafile=certifi.where())
-        async with aiohttp.ClientSession(cookie_jar=jar, connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
+        # Bypass SSL verification due to USAS LMS certificate chain issues on some environments
+        async with aiohttp.ClientSession(cookie_jar=jar, connector=aiohttp.TCPConnector(ssl=False)) as session:
             html = await self._get_dashboard_html(session)
             sesskey = extract_sesskey(html)
             course_id, category_id, _ = extract_calendar_context(html)
