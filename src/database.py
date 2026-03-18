@@ -14,8 +14,13 @@ if is_sqlite:
     os.makedirs(os.path.dirname(config.DB_PATH), exist_ok=True)
     db_url = f"sqlite+aiosqlite:///{config.DB_PATH}"
 else:
-    # Render's DATABASE_URL usually starts with postgres://, SQLAlchemy needs postgresql+asyncpg://
-    db_url = config.DATABASE_URL.replace("postgres://", "postgresql+asyncpg://")
+    # Render's DATABASE_URL usually starts with postgres:// or postgresql://
+    # SQLAlchemy 2.0+ with create_async_engine MUST use postgresql+asyncpg://
+    db_url = config.DATABASE_URL
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif db_url.startswith("postgresql://") and "+asyncpg" not in db_url:
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 engine = create_async_engine(db_url)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
