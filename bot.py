@@ -257,6 +257,18 @@ async def start_web_server() -> None:
     await site.start()
     logger.info(f"🌐 Web Server started on port {config.PORT}")
 
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log the error and send a telegram message to notify the developer."""
+    logger.error("Exception while handling an update:", exc_info=context.error)
+
+    # Optionally notify the user
+    if isinstance(update, Update) and update.effective_message:
+        from src import strings
+        await update.effective_message.reply_text(
+            strings.SOMETHING_WENT_WRONG,
+            parse_mode="Markdown"
+        )
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 async def run_bot() -> None:
     """Main async entry point for the bot and web server."""
