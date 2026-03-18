@@ -275,18 +275,18 @@ async def run_bot() -> None:
     """Main async entry point for the bot and web server."""
     logger.info("🚀  LMS Assignment Notifier starting…")
     
-    # 0. Initialize Database
+    # 1. Start Web Server immediately to satisfy Render's health check
+    await start_web_server()
+
+    # 2. Initialize Database
     from src.database import init_db
     await init_db()
     
-    # 1. Initialize Bot
+    # 3. Initialize Bot
     app = build_app()
     app.add_error_handler(error_handler)
     
-    # 2. Start Web Server (Sequential to ensure port is bound early for Render)
-    await start_web_server()
-    
-    # 3. Start Self-Pinger task
+    # 4. Start Self-Pinger task
     asyncio.create_task(self_pinger())
     
     # 4. Run Bot Polling
