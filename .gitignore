@@ -1,0 +1,33 @@
+# Secrets
+.env
+service_account.json
+
+# Database
+data/
+*.db
+tmp_db_out.txt
+dashboard-pgsource.txt
+login-pgsource.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Reference / archived code
+STEM-Telebot-main/
+main.py

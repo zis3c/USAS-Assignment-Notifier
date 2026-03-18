@@ -1,0 +1,296 @@
+"""
+Assignment Notifier Bot — Entry Point
+────────────────────────────────────────────────────────────────────────────────
+Run:  python bot.py
+Env:  Copy .env.example → .env and fill in BOT_TOKEN and FERNET_KEY.
+────────────────────────────────────────────────────────────────────────────────
+"""
+import sys
+import logging
+
+# Force UTF-8 encoding for Windows terminals
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+
+from telegram import BotCommand, Update
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, CallbackQueryHandler, filters, TypeHandler, ApplicationHandlerStop
+from datetime import datetime, timezone
+import asyncio
+from aiohttp import web, ClientSession
+
+from src import config
+from src.database import init_db
+from src.handlers import (
+    admin_handle_matric_actions,
+    admin_logs,
+    admin_panel,
+    admin_toggle_maintenance,
+    broadcast_conversation,
+    button_router,
+    check_now,
+    help_cmd,
+    register_conversation,
+    start,
+    status,
+    unregister_conversation,
+    check_banned,
+    check_maintenance,
+)
+from src.database import AsyncSessionLocal
+from src.models import User, SystemSettings
+from sqlalchemy import select
+from src.jobs import poll_all_users, send_daily_logs
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+import os
+os.makedirs("logs", exist_ok=True)
+
+from logging.handlers import RotatingFileHandler
+
+log_format = "%(asctime)s  %(levelname)-8s  %(name)s — %(message)s"
+logging.basicConfig(
+    level=logging.INFO,
+    format=log_format,
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.StreamHandler(),
+        RotatingFileHandler(
+            config.LOG_FILE_PATH, 
+            encoding="utf-8", 
+            maxBytes=5 * 1024 * 1024,  # 5 MB
+            backupCount=0
+        )
+    ]
+)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("telegram").setLevel(logging.WARNING)
+
+logger = logging.getLogger("lms_notifier")
+
+
+# ── Startup hook ──────────────────────────────────────────────────────────────
+async def post_init(app: Application) -> None:
+    """Called once after the Application is initialised."""
+    await init_db()
+
+    # Register bot command list (shown in Telegram menu)
+    try:
+        await app.bot.set_my_commands(
+            [
+                BotCommand("start", "Open the main menu"),
+                BotCommand("register", "Link your LMS account"),
+                BotCommand("status", "View your account status"),
+                BotCommand("check", "Check for new assignments now"),
+                BotCommand("help", "How to use this bot"),
+                BotCommand("logout", "Logout / Remove account"),
+            ]
+        )
+    except Exception as e:
+        logger.warning("Could not set bot commands: %s", e)
+
+    # Schedule periodic polling
+    app.job_queue.run_repeating(
+        poll_all_users,
+        interval=config.POLL_INTERVAL_SECONDS,
+        first=10,
+        name="poll_all_users",
+    )
+
+    # Schedule daily logs at 00:00 (Midnight)
+    from datetime import time
+    app.job_queue.run_daily(
+        send_daily_logs,
+        time=time(hour=0, minute=0, second=0),
+        name="send_daily_logs",
+    )
+
+    logger.info("✅  Scheduler started — polling every %ss", config.POLL_INTERVAL_SECONDS)
+
+async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Global middleware for anti-spam, maintenance, and bans + Activity Logging."""
+    if not update.effective_user or not update.message or not update.message.text:
+        return
+
+    user_id = update.effective_user.id
+    username = update.effective_user.username or "unknown"
+    text = update.message.text
+    
+    # --- Activity Logging (Sensitive Data Masking) ---
+    safe_buttons = [
+        "Check Now", "Status", "Help", "Register", "Logout", "Main Menu",
+        "User Stats", "User List", "Poll All Now", "Get Logs", "Broadcast",
+        "Find User", "Ban/Unban", "Backup DB", "Maint. Mode", "Confirm Sending", "Cancel"
+    ]
+    
+    is_command = text.startswith('/')
+    log_text = text
+    
+    # Masking logic
+    is_sensitive = False
+    # If not a command and not a safe button, it's likely a matric / password / broadcast msg
+    if not is_command and text not in safe_buttons:
+        # Basic check for USAS Matric ID (already fixed regex in handlers, let's reuse logic)
+        import re
+        if re.match(r"^[A-Z]\d{8}$", text.upper()):
+            log_text = "[MATRIC ID MASKED]"
+            is_sensitive = True
+        else:
+            # Check if likely a password (long text or random looking) 
+            # or if the user is currently in a registration state (estimated)
+            # For safety, mask any non-safe text during registration-like behavior
+            log_text = "[SENSITIVE DATA MASKED]"
+            is_sensitive = True
+
+    logger.info(f"👤 Activity: {username} ({user_id}) -> {log_text}")
+
+    # 1. Anti-Spam (1 second)
+    now = datetime.now(timezone.utc).timestamp()
+    last_action = context.user_data.get("last_action_time", 0)
+    if now - last_action < config.GLOBAL_ANTI_SPAM_INTERVAL:
+        raise ApplicationHandlerStop()
+    context.user_data["last_action_time"] = now
+
+    # Skip maintenance/ban for Admin
+    if user_id == config.ADMIN_ID:
+        return
+
+    # 2. Maintenance Mode
+    from src.handlers import check_maintenance
+    if await check_maintenance(update, context):
+        raise ApplicationHandlerStop()
+
+    # 3. Ban Check
+    from src.handlers import check_banned
+    if await check_banned(user_id):
+        raise ApplicationHandlerStop()
+
+
+# ── Application setup ─────────────────────────────────────────────────────────
+def build_app() -> Application:
+    app = (
+        Application.builder()
+        .token(config.BOT_TOKEN)
+        .post_init(post_init)
+        .concurrent_updates(True)
+        .build()
+    )
+
+    # Global check first
+    app.add_handler(TypeHandler(Update, global_check), group=-1)
+
+    # Conversation flows (registered first — they take priority)
+    app.add_handler(register_conversation())
+    app.add_handler(unregister_conversation())
+    app.add_handler(broadcast_conversation())
+
+    # Slash commands
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_cmd))
+    app.add_handler(CommandHandler("status", status))
+    app.add_handler(CommandHandler("check", check_now))
+    app.add_handler(CommandHandler("logs", admin_logs))
+    app.add_handler(CommandHandler("admin", admin_panel))
+
+    # Keyboard button taps
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r"^(Check Now|Status|Help|Register|Logout|Main Menu|User Stats|User List|Poll All Now|Get Logs|Broadcast|Find User|Ban/Unban|Backup DB|Maint. Mode|Server Performance)$"),
+            button_router,
+        )
+    )
+
+    # Callbacks
+    from src.handlers import how_it_works_callback, help_back_callback
+    app.add_handler(CallbackQueryHandler(how_it_works_callback, pattern="^how_it_works$"))
+    app.add_handler(CallbackQueryHandler(help_back_callback, pattern="^help_back$"))
+
+    # Admin text handler (for matric lookups)
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            admin_handle_matric_actions
+        )
+    )
+
+    return app
+
+
+# ── Render & Self-Pinger ──────────────────────────────────────────────────────
+
+async def self_pinger() -> None:
+    """Pings the bot's own URL every 14 minutes to prevent sleep on Render."""
+    if not config.RENDER_EXTERNAL_URL:
+        logger.info("📡 RENDER_EXTERNAL_URL not set. Self-pinger disabled.")
+        return
+
+    logger.info("💓 Self-pinger started (Interval: 14m)")
+    while True:
+        await asyncio.sleep(config.SELF_PING_INTERVAL)
+        try:
+            url = f"{config.RENDER_EXTERNAL_URL.rstrip('/')}/health"
+            async with ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        logger.info("💓 Self-Ping: Succesful (200 OK)")
+                    else:
+                        logger.warning(f"💓 Self-Ping: Unexpected status {resp.status}")
+        except Exception as e:
+            logger.error(f"⚠️ Self-Ping Failed: {e}")
+
+async def health_check(request: web.Request) -> web.Response:
+    """Simple health check endpoint for Render and UptimeRobot."""
+    return web.Response(text="Alive", status=200)
+
+async def start_web_server() -> None:
+    """Starts a simple aiohttp server to handle health checks."""
+    app = web.Application()
+    app.router.add_get("/", health_check)
+    app.router.add_get("/health", health_check)
+    
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", config.PORT)
+    await site.start()
+    logger.info(f"🌐 Web Server started on port {config.PORT}")
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+async def run_bot() -> None:
+    """Main async entry point for the bot and web server."""
+    logger.info("🚀  LMS Assignment Notifier starting…")
+    
+    # 1. Initialize Bot
+    app = build_app()
+    app.add_error_handler(error_handler)
+    
+    # 2. Start Web Server (Sequential to ensure port is bound early for Render)
+    await start_web_server()
+    
+    # 3. Start Self-Pinger task
+    asyncio.create_task(self_pinger())
+    
+    # 4. Run Bot Polling
+    async with app:
+        await app.initialize()
+        await app.start()
+        logger.info("📡 Bot is now polling...")
+        await app.updater.start_polling(drop_pending_updates=True)
+        
+        # Keep the loop alive
+        while True:
+            await asyncio.sleep(3600)
+
+def main() -> None:
+    try:
+        asyncio.run(run_bot())
+    except KeyboardInterrupt:
+        logger.info("🛑 Bot stopped by user.")
+    except Exception as e:
+        logger.critical(f"💥 Fatal error: {e}", exc_info=True)
+
+
+if __name__ == "__main__":
+    main()
