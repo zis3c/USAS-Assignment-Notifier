@@ -274,6 +274,10 @@ async def run_bot() -> None:
     """Main async entry point for the bot and web server."""
     logger.info("🚀  LMS Assignment Notifier starting…")
     
+    # 0. Initialize Database
+    from src.database import init_db
+    await init_db()
+    
     # 1. Initialize Bot
     app = build_app()
     app.add_error_handler(error_handler)
