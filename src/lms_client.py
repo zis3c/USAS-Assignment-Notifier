@@ -69,29 +69,35 @@ def extract_user_name(html: str) -> Optional[str]:
         # Final trim of symbols
         return n.strip(" !👋").strip()
 
-    # 1. Greeting Header : "Hi, NAME! 👋"
-    header = soup.find("div", class_=re.compile(r"headerandnav"))
-    if header:
-        h2 = header.find("h2")
-        if h2:
-            text = h2.get_text(separator=" ", strip=True)
-            # Match after "Hi," or just capture what looks like a name
-            match = re.search(r"Hi,\s+(.+)", text, re.IGNORECASE)
-            if match:
-                return clean_name(match.group(1))
+    # 1. Login Info: "You are logged in as Full Name" (Most reliable for full name)
+    login_info = soup.find("div", class_="logininfo")
+    if login_info:
+        name_link = login_info.find("a", href=lambda h: h and ("user/profile.php" in h or "user/view.php" in h))
+        if name_link:
+            name = clean_name(name_link.get_text(strip=True))
+            if name: return name
 
-    # 2. Extract userId from M.cfg JS block
+    # 2. Extract userId from M.cfg JS block and find its profile link
     user_id = None
     js_match = re.search(r'"userId":(\d+)', html)
     if js_match:
         user_id = js_match.group(1)
 
     if user_id:
-        user_link = soup.find("a", href=re.compile(fr'user/view\.php\?id={user_id}'))
+        user_link = soup.find("a", href=re.compile(fr'user/(?:view|profile)\.php\?id={user_id}'))
         if user_link:
             name = clean_name(user_link.get_text(strip=True))
-            if name:
-                return name
+            if name: return name
+
+    # 3. Greeting Header : "Hi, NAME! 👋" (Usually first name only)
+    header = soup.find("div", class_=re.compile(r"headerandnav"))
+    if header:
+        h2 = header.find("h2")
+        if h2:
+            text = h2.get_text(separator=" ", strip=True)
+            match = re.search(r"Hi,\s+(.+)", text, re.IGNORECASE)
+            if match:
+                return clean_name(match.group(1))
 
     # 3. Fallback: User dropdown toggle aria-label or title
     user_toggle = soup.find(id="user-menu-toggle")
