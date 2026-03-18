@@ -17,7 +17,7 @@ class User(Base):
     display_name = Column(String, nullable=True)
     password_blob = Column(LargeBinary, nullable=False)
     session_cookie_blob = Column(LargeBinary, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     last_checked_at = Column(DateTime, nullable=True)
     active = Column(Boolean, default=True)
     is_banned = Column(Boolean, default=False)
@@ -32,7 +32,7 @@ class UserEvent(Base):
     title = Column(String, nullable=False)
     due_at = Column(DateTime, nullable=True)
     link = Column(String, nullable=True)
-    first_seen_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    first_seen_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     __table_args__ = (UniqueConstraint("user_id", "event_id", name="uq_user_event"),)
 

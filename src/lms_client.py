@@ -129,7 +129,7 @@ def normalize_event(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
     due_at = None
     if isinstance(timestart, (int, float)):
-        due_at = datetime.fromtimestamp(int(timestart), tz=timezone.utc)
+        due_at = datetime.fromtimestamp(int(timestart), tz=timezone.utc).replace(tzinfo=None)
 
     return {
         "id": str(event_id),
