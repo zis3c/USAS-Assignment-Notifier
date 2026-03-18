@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import aiohttp
+import certifi
+import ssl
 from bs4 import BeautifulSoup
 from yarl import URL
 
@@ -198,7 +200,8 @@ class LMSClient:
                 response_url=URL(config.LMS_BASE_URL),
             )
 
-        async with aiohttp.ClientSession(cookie_jar=jar) as session:
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
+        async with aiohttp.ClientSession(cookie_jar=jar, connector=aiohttp.TCPConnector(ssl=ssl_context)) as session:
             html = await self._get_dashboard_html(session)
             sesskey = extract_sesskey(html)
             course_id, category_id, _ = extract_calendar_context(html)
