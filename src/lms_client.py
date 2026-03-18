@@ -7,8 +7,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import aiohttp
-import certifi
-import ssl
 from bs4 import BeautifulSoup
 from yarl import URL
 
