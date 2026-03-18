@@ -250,6 +250,7 @@ async def start_web_server() -> None:
     app = web.Application()
     app.router.add_get("/", health_check)
     app.router.add_get("/health", health_check)
+    app.router.add_get("/health/", health_check)
     
     runner = web.AppRunner(app)
     await runner.setup()
