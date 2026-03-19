@@ -38,15 +38,15 @@ PROMPT_MEMBERSHIP_ID = (
 )
 
 PROMPT_STUDENT_ID = (
-    "ID: {membership_id}\n\n"
+    "ID: `{membership_id}`\n\n"
     "Step 2/3\n"
     "Please type your *Matric Number*:\n"
     "(Example: `I24067510`)"
 )
 
 PROMPT_PASSWORD = (
-    "ID: {membership_id}\n"
-    "Matric: {student_id}\n\n"
+    "ID: `{membership_id}`\n"
+    "Matric: `{student_id}`\n\n"
     "Step 3/3\n"
     "Please enter your *LMS Password*:"
 )
