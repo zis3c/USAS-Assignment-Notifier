@@ -31,21 +31,24 @@ HELP_DETAIL = (
 # ── Registration Flow ─────────────────────────────────────────────────────────
 
 PROMPT_MEMBERSHIP_ID = (
-    "*Step 1/3* - Enter *STEM ID*\n"
-    "_Ex: STEM(25/26)0016_\n\n"
+    "Step 1/3\n\n"
+    "Please enter your *STEM ID*:\n"
+    "(Example: `STEM(25/26)0016`)\n\n"
     "Get it in @stemusasbot"
 )
 
 PROMPT_STUDENT_ID = (
-    "ID: `{membership_id}`\n\n"
-    "*Step 2/3* - Enter *Matric No*\n"
-    "_Ex: I24067510_"
+    "ID: {membership_id}\n\n"
+    "Step 2/3\n"
+    "Please type your *Matric Number*:\n"
+    "(Example: `I24067510`)"
 )
 
 PROMPT_PASSWORD = (
-    "ID: `{membership_id}`\n"
-    "Matric: `{student_id}`\n\n"
-    "*Step 3/3* - Enter *LMS Password*"
+    "ID: {membership_id}\n"
+    "Matric: {student_id}\n\n"
+    "Step 3/3\n"
+    "Please enter your *LMS Password*:"
 )
 
 # -- Errors & Validation -------------------------------------------------------
