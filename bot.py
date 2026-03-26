@@ -130,21 +130,9 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     is_command = text.startswith('/')
     log_text = text
     
-    # Masking logic
-    is_sensitive = False
-    # If not a command and not a safe button, it's likely a matric / password / broadcast msg
-    if not is_command and text not in safe_buttons:
-        # Basic check for USAS Matric ID (already fixed regex in handlers, let's reuse logic)
-        import re
-        if re.match(r"^[A-Z]\d{8}$", text.upper()):
-            log_text = "[MATRIC ID MASKED]"
-            is_sensitive = True
-        else:
-            # Check if likely a password (long text or random looking) 
-            # or if the user is currently in a registration state (estimated)
-            # For safety, mask any non-safe text during registration-like behavior
-            log_text = "[SENSITIVE DATA MASKED]"
-            is_sensitive = True
+    # --- Activity Logging (State-based Masking) ---
+    if context.user_data.get("is_typing_password"):
+        log_text = "[PASSWORD MASKED]"
 
     logger.info(f"👤 Activity: {username} ({user_id}) -> {log_text}")
 
@@ -156,8 +144,6 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         action = "COMMAND"
     elif text in safe_buttons:
         action = "KEYBOARD_CLICK"
-        # Optional: Map text to internal button IDs if needed, 
-        # but the project strings are mostly the same as button text.
         details = f"Button: {text}"
 
     # Use first_name for the log as requested (Radzi)

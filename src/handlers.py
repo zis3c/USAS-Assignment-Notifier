@@ -259,6 +259,9 @@ async def receive_student_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data["student_id"] = text
     membership_id = context.user_data.get("membership_id", "Unknown")
     
+    # Set flag to mask next message (password) in activity logs
+    context.user_data["is_typing_password"] = True
+
     await update.message.reply_text(
         strings.PROMPT_PASSWORD.format(membership_id=membership_id, student_id=text),
         parse_mode="Markdown",
@@ -269,6 +272,9 @@ async def receive_student_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def receive_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text.strip()
+    # Reset password masking flag
+    context.user_data["is_typing_password"] = False
+
     if _is_cancel(text):
         return await _cancel_registration(update, context)
 
@@ -334,6 +340,7 @@ async def receive_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 async def _cancel_registration(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data["is_typing_password"] = False
     await update.message.reply_text(
         strings.REGISTER_CANCELLED,
         parse_mode="Markdown",
