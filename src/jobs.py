@@ -126,11 +126,11 @@ async def poll_user_id(user_id: int, bot) -> int:
 
 
 async def send_daily_logs(context) -> None:
-    """Job: send the daily log file to the admin and clear it."""
+    """Job: send the daily activity log file to the admin and clear it."""
     import os
     from datetime import timedelta
     
-    if not os.path.exists(config.LOG_FILE_PATH):
+    if not os.path.exists(config.ACTIVITY_LOG_PATH):
         return
 
     # Yesterday's date for the report filename
@@ -138,31 +138,24 @@ async def send_daily_logs(context) -> None:
     date_str = yesterday.strftime('%Y-%m-%d')
 
     try:
-        # Check if file is empty or only has the reset header
-        if os.path.getsize(config.LOG_FILE_PATH) < 100:
-             # Basic check: if it's too small, maybe nothing happened
-             pass
+        # Check if file has content
+        if os.path.getsize(config.ACTIVITY_LOG_PATH) == 0:
+             return
 
         # Send the file
-        with open(config.LOG_FILE_PATH, "rb") as f:
+        with open(config.ACTIVITY_LOG_PATH, "rb") as f:
             await context.bot.send_document(
                 chat_id=config.ADMIN_ID,
                 document=f,
-                filename=f"bot_logs_{date_str}.txt",
+                filename=f"activity_report_{date_str}.txt",
                 caption=f"📄 *Daily Activity Report*\nDate: `{date_str}`",
                 parse_mode="Markdown"
             )
         
-        # Clear the file after sending
-        with open(config.LOG_FILE_PATH, "w", encoding="utf-8") as f:
-            f.write(f"--- Log reset at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
-            
-        # Optional: cleanup any accidental backup files (bot.log.1, etc)
-        for i in range(1, 4):
-            bak = f"{config.LOG_FILE_PATH}.{i}"
-            if os.path.exists(bak):
-                os.remove(bak)
+        # Clear the file after sending for the new day
+        with open(config.ACTIVITY_LOG_PATH, "w", encoding="utf-8") as f:
+            f.truncate(0)
 
-        logger.info("✅ Daily logs sent to admin and file reset.")
+        logger.info("✅ Daily activity logs sent to admin and file reset.")
     except Exception as e:
         logger.error("Failed to send daily logs: %s", e)

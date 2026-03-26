@@ -44,6 +44,7 @@ from src.database import AsyncSessionLocal
 from src.models import User, SystemSettings
 from sqlalchemy import select
 from src.jobs import poll_all_users, send_daily_logs
+from src.logging_utils import log_activity
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 import os
@@ -147,6 +148,22 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     logger.info(f"👤 Activity: {username} ({user_id}) -> {log_text}")
 
+    # --- New Activity Log (Clean Format) ---
+    action = "MSG"
+    details = log_text
+    
+    if is_command:
+        action = "COMMAND"
+    elif text in safe_buttons:
+        action = "KEYBOARD_CLICK"
+        # Optional: Map text to internal button IDs if needed, 
+        # but the project strings are mostly the same as button text.
+        details = f"Button: {text}"
+
+    # Use first_name for the log as requested (Radzi)
+    first_name = update.effective_user.first_name or "Unknown"
+    log_activity(first_name, user_id, action, details)
+
     # 1. Anti-Spam (1 second)
     now = datetime.now(timezone.utc).timestamp()
     last_action = context.user_data.get("last_action_time", 0)
@@ -198,7 +215,7 @@ def build_app() -> Application:
     # Keyboard button taps
     app.add_handler(
         MessageHandler(
-            filters.Regex(r"^(Check Now|Status|Help|Register|Logout|Main Menu|User Stats|User List|Poll All Now|Get Logs|Broadcast|Find User|Ban/Unban|Backup DB|Maint. Mode|Server Performance)$"),
+            filters.Regex(r"^(Check Now|Status|Help|Register|Logout|Main Menu|User Stats|User List|Poll All Now|View Logs|Broadcast|Find User|Ban/Unban|Backup DB|Maint. Mode|Server Performance)$"),
             button_router,
         )
     )

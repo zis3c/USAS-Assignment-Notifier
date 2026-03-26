@@ -26,6 +26,7 @@ from src.jobs import poll_user_id
 from src.lms_client import LMSClient, extract_user_name, extract_sesskey
 from src.models import User, SystemSettings
 from src.sheets_client import sheets_client
+from src.logging_utils import log_activity
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +192,14 @@ async def check_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     msg = strings.CHECK_NEW.format(count=count) if count > 0 else strings.CHECK_NO_NEW
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=keyboards.main_menu())
+    
+    # Log the result
+    log_activity(
+        update.effective_user.first_name or "Unknown",
+        update.effective_user.id,
+        "CHECK_MEMBERSHIP",
+        f"Matric: {user_id} | Result: {'SUCCESS' if count >= 0 else 'FAILED'}"
+    )
 
 
 # ── /register  &  🔐 Register flow ───────────────────────────────────────────
@@ -477,16 +486,16 @@ async def admin_logs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
 
     import os
-    if not os.path.exists(config.LOG_FILE_PATH):
-        await update.message.reply_text("❌ Log file not found.")
+    if not os.path.exists(config.ACTIVITY_LOG_PATH):
+        await update.message.reply_text("📂 Activity log is empty or missing.")
         return
 
     try:
-        with open(config.LOG_FILE_PATH, "rb") as f:
+        with open(config.ACTIVITY_LOG_PATH, "rb") as f:
             await update.message.reply_document(
                 document=f,
-                filename="current_logs.txt",
-                caption="📂 *Current Session Logs*",
+                filename=f"activity_{datetime.now().strftime('%Y-%m-%d')}.txt",
+                caption="📜 *Activity Logs*",
                 parse_mode="Markdown"
             )
     except Exception as e:
@@ -521,7 +530,7 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await admin_user_list(update, context)
     elif text == "Poll All Now":
         await admin_poll_now(update, context)
-    elif text == "Get Logs":
+    elif text == "View Logs":
         await admin_logs(update, context)
     elif text == "Find User":
         context.user_data["admin_action"] = "find"

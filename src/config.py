@@ -25,6 +25,7 @@ MAX_CONCURRENCY: int = int(os.getenv("MAX_CONCURRENCY", "10"))
 EVENT_HORIZON_DAYS: int = int(os.getenv("EVENT_HORIZON_DAYS", "30"))
 ADMIN_ID: int = int(os.getenv("ADMIN_ID", "0"))
 LOG_FILE_PATH: str = os.getenv("LOG_FILE_PATH", "logs/bot.log")
+ACTIVITY_LOG_PATH: str = os.getenv("ACTIVITY_LOG_PATH", "logs/activity.log")
 # ── Rate Limiting ───────────────────────────────────────────────────────────
 USER_CHECK_INTERVAL = 300  # 5 minutes in seconds
 ADMIN_POLL_INTERVAL = 900  # 15 minutes in seconds

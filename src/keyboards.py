@@ -33,7 +33,7 @@ def admin_menu() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
             ["User Stats", "User List"],
-            ["Poll All Now", "Get Logs"],
+            ["Poll All Now", "View Logs"],
             ["Broadcast", "Find User"],
             ["Ban/Unban", "Backup DB"],
             ["Maint. Mode", "Server Performance"],
