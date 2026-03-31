@@ -127,17 +127,19 @@ def _clean_subject_name(value: str) -> str:
     if not text:
         return ""
 
-    # Strip a leading subject code in forms like:
+    # Normalize forms like:
     # KSC6433 FINANCIAL TECHNOLOGY
     # KSC6433-FINANCIAL TECHNOLOGY
     # KSC6433: FINANCIAL TECHNOLOGY
     match = re.match(
-        r"^[A-Z]{2,4}\d{3,4}(?:\s*[-:|]\s*|\s+)(.+)$",
+        r"^([A-Z]{2,4}\d{3,4})(?:\s*[-:|]\s*|\s+)(.+)$",
         text,
         flags=re.IGNORECASE,
     )
-    if match and match.group(1).strip():
-        return match.group(1).strip()
+    if match:
+        code = match.group(1).upper()
+        name = " ".join(match.group(2).split()).strip()
+        return f"{code} {name}" if name else code
 
     return text
 

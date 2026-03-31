@@ -59,16 +59,20 @@ def _format_subject(subject: str) -> str:
     if not clean:
         return clean
 
-    clean = re.sub(
-        r"^[A-Z]{2,4}\d{3,4}(?:\s*[-:|]\s*|\s+)",
-        "",
+    match = re.match(
+        r"^([A-Z]{2,4}\d{3,4})(?:\s*[-:|]\s*|\s+)(.+)$",
         clean,
         flags=re.IGNORECASE,
-    ).strip()
-    if not clean:
-        return ""
+    )
+    code = ""
+    name = clean
+    if match:
+        code = match.group(1).upper()
+        name = match.group(2).strip()
+    elif re.fullmatch(r"[A-Z]{2,4}\d{3,4}", clean, flags=re.IGNORECASE):
+        return clean.upper()
 
-    tokens = clean.split()
+    tokens = name.split()
     if all(token.isupper() for token in tokens):
         formatted_tokens = []
         for token in tokens:
@@ -77,9 +81,16 @@ def _format_subject(subject: str) -> str:
                 formatted_tokens.append(token)
             else:
                 formatted_tokens.append(token.capitalize())
-        return " ".join(formatted_tokens)
+        formatted_name = " ".join(formatted_tokens)
+    else:
+        formatted_name = name.title() if code else name
 
-    return clean
+    return f"{code} {formatted_name}".strip()
+
+
+def _format_title(title: str) -> str:
+    clean = " ".join((title or "").split()).strip()
+    return re.sub(r"\s+is\s+due$", "", clean, flags=re.IGNORECASE).strip()
 
 
 async def poll_all_users(context) -> None:
@@ -119,7 +130,7 @@ def _build_assignment_item(event: dict) -> str:
 
     subject = _format_subject((event.get("subject") or "").strip())
     subject_line = strings.ASSIGNMENT_SUBJECT_LINE.format(subject=escape(subject)) if subject else ""
-    title = escape(str(event.get("title") or "Assignment"))
+    title = escape(_format_title(str(event.get("title") or "Assignment")))
 
     return strings.ASSIGNMENT_ITEM.format(
         subject_line=subject_line,
@@ -154,7 +165,7 @@ def _build_assignment_batches(events: list[dict], is_reminder: bool) -> list[str
     return batches
 
 
-async def poll_user_id(user_id: int, bot) -> PollResult:
+async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False) -> PollResult:
     """Poll a single user and send notifications for new and pending assignments."""
     async with AsyncSessionLocal() as session:
         user = await session.get(User, user_id)
@@ -238,7 +249,10 @@ async def poll_user_id(user_id: int, bot) -> PollResult:
 
             if _is_pending(due_at, now_utc):
                 pending_count += 1
-                if not is_new and _should_send_reminder(current.last_notified_at, now_utc):
+                should_send = force_pending_reminders or _should_send_reminder(
+                    current.last_notified_at, now_utc
+                )
+                if not is_new and should_send:
                     reminder_events.append(event)
 
         for event in [*new_events, *reminder_events]:

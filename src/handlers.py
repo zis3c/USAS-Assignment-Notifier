@@ -183,7 +183,11 @@ async def check_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     waiting = await update.message.reply_text(strings.CHECK_RUNNING, parse_mode="Markdown")
-    result = await poll_user_id(user_id, context.application.bot)
+    result = await poll_user_id(
+        user_id,
+        context.application.bot,
+        force_pending_reminders=True,
+    )
 
     try:
         await waiting.delete()
