@@ -24,6 +24,8 @@ POLL_INTERVAL_SECONDS: int = int(os.getenv("POLL_INTERVAL_SECONDS", "3600"))
 MAX_CONCURRENCY: int = int(os.getenv("MAX_CONCURRENCY", "10"))
 EVENT_HORIZON_DAYS: int = int(os.getenv("EVENT_HORIZON_DAYS", "30"))
 ADMIN_ID: int = int(os.getenv("ADMIN_ID", "0"))
+DAILY_LOG_HOUR: int = int(os.getenv("DAILY_LOG_HOUR", "8"))
+DAILY_LOG_MINUTE: int = int(os.getenv("DAILY_LOG_MINUTE", "0"))
 LOG_FILE_PATH: str = os.getenv("LOG_FILE_PATH", "logs/bot.log")
 ACTIVITY_LOG_PATH: str = os.getenv("ACTIVITY_LOG_PATH", "logs/activity.log")
 # ── Rate Limiting ───────────────────────────────────────────────────────────

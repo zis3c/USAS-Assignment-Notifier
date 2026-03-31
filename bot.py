@@ -101,15 +101,27 @@ async def post_init(app: Application) -> None:
         name="poll_all_users",
     )
 
-    # Schedule daily logs at 00:00 (Midnight)
+    # Schedule daily activity log delivery (default 08:00 Asia/Kuala_Lumpur)
     from datetime import time
+    daily_log_time = time(
+        hour=config.DAILY_LOG_HOUR,
+        minute=config.DAILY_LOG_MINUTE,
+        second=0,
+        tzinfo=config.LOCAL_TZ,
+    )
     app.job_queue.run_daily(
         send_daily_logs,
-        time=time(hour=0, minute=0, second=0),
+        time=daily_log_time,
         name="send_daily_logs",
     )
 
-    logger.info("✅  Scheduler started — polling every %ss", config.POLL_INTERVAL_SECONDS)
+    logger.info(
+        "✅  Scheduler started — polling every %ss, daily logs at %02d:%02d (%s)",
+        config.POLL_INTERVAL_SECONDS,
+        config.DAILY_LOG_HOUR,
+        config.DAILY_LOG_MINUTE,
+        getattr(config.LOCAL_TZ, "key", str(config.LOCAL_TZ)),
+    )
 
 async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Global middleware for anti-spam, maintenance, and bans + Activity Logging."""

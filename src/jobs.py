@@ -129,18 +129,25 @@ async def send_daily_logs(context) -> None:
     """Job: send the daily activity log file to the admin and clear it."""
     import os
     from datetime import timedelta
-    
+
+    if not config.ADMIN_ID:
+        logger.warning("Daily log job skipped: ADMIN_ID is not configured.")
+        return
+
     if not os.path.exists(config.ACTIVITY_LOG_PATH):
+        logger.info("Daily log job skipped: %s does not exist.", config.ACTIVITY_LOG_PATH)
         return
 
     # Yesterday's date for the report filename
-    yesterday = datetime.now() - timedelta(days=1)
+    now_local = datetime.now(config.LOCAL_TZ)
+    yesterday = now_local - timedelta(days=1)
     date_str = yesterday.strftime('%Y-%m-%d')
 
     try:
         # Check if file has content
         if os.path.getsize(config.ACTIVITY_LOG_PATH) == 0:
-             return
+            logger.info("Daily log job skipped: %s is empty.", config.ACTIVITY_LOG_PATH)
+            return
 
         # Send the file
         with open(config.ACTIVITY_LOG_PATH, "rb") as f:
