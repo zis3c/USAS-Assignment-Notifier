@@ -127,8 +127,15 @@ def _clean_subject_name(value: str) -> str:
     if not text:
         return ""
 
-    # Strip a leading subject code if it is followed by real subject words.
-    match = re.match(r"^[A-Z]{2,4}\d{3,4}\s*[-:|]?\s+(.+)$", text, flags=re.IGNORECASE)
+    # Strip a leading subject code in forms like:
+    # KSC6433 FINANCIAL TECHNOLOGY
+    # KSC6433-FINANCIAL TECHNOLOGY
+    # KSC6433: FINANCIAL TECHNOLOGY
+    match = re.match(
+        r"^[A-Z]{2,4}\d{3,4}(?:\s*[-:|]\s*|\s+)(.+)$",
+        text,
+        flags=re.IGNORECASE,
+    )
     if match and match.group(1).strip():
         return match.group(1).strip()
 

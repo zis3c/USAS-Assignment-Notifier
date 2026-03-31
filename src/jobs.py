@@ -1,6 +1,7 @@
 """Background job functions : periodic LMS polling."""
 import asyncio
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from html import escape
@@ -57,6 +58,15 @@ def _format_subject(subject: str) -> str:
     clean = " ".join((subject or "").split()).strip()
     if not clean:
         return clean
+
+    clean = re.sub(
+        r"^[A-Z]{2,4}\d{3,4}(?:\s*[-:|]\s*|\s+)",
+        "",
+        clean,
+        flags=re.IGNORECASE,
+    ).strip()
+    if not clean:
+        return ""
 
     tokens = clean.split()
     if all(token.isupper() for token in tokens):
