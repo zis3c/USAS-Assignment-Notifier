@@ -51,6 +51,25 @@ def _should_send_reminder(last_notified_at: Optional[datetime], now_utc: datetim
     return seconds_since_last >= config.REMINDER_INTERVAL_SECONDS
 
 
+def _format_subject(subject: str) -> str:
+    clean = " ".join((subject or "").split()).strip()
+    if not clean:
+        return clean
+
+    tokens = clean.split()
+    if all(token.isupper() for token in tokens):
+        formatted_tokens = []
+        for token in tokens:
+            # Keep short acronyms as uppercase (e.g., IT, AI).
+            if len(token) <= 3:
+                formatted_tokens.append(token)
+            else:
+                formatted_tokens.append(token.capitalize())
+        return " ".join(formatted_tokens)
+
+    return clean
+
+
 async def poll_all_users(context) -> None:
     """Job: poll every active user for new assignments."""
     start_time = datetime.now()
@@ -77,7 +96,7 @@ async def poll_all_users(context) -> None:
     logger.info("📊  Poll cycle completed in %.2fs for %d users.", duration, len(user_ids))
 
 
-def _build_assignment_card(event: dict, is_reminder: bool = False) -> str:
+def _build_assignment_item(event: dict) -> str:
     due_at = _to_utc_naive(event.get("due_at"))
     due_line = ""
     if isinstance(due_at, datetime):
@@ -86,16 +105,40 @@ def _build_assignment_card(event: dict, is_reminder: bool = False) -> str:
     link = event.get("link") or ""
     link_line = strings.ASSIGNMENT_LINK_LINE.format(link=link) if link else ""
 
-    subject = (event.get("subject") or "").strip()
+    subject = _format_subject((event.get("subject") or "").strip())
     subject_line = strings.ASSIGNMENT_SUBJECT_LINE.format(subject=subject) if subject else ""
 
-    template = strings.PENDING_ASSIGNMENT_CARD if is_reminder else strings.ASSIGNMENT_CARD
-    return template.format(
+    return strings.ASSIGNMENT_ITEM.format(
         subject_line=subject_line,
         title=event["title"],
         due_line=due_line,
         link_line=link_line,
     )
+
+
+def _build_assignment_batches(events: list[dict], is_reminder: bool) -> list[str]:
+    if not events:
+        return []
+
+    header = strings.PENDING_ASSIGNMENT_HEADER if is_reminder else strings.NEW_ASSIGNMENT_HEADER
+    max_len = 3900
+    batches: list[str] = []
+    current = f"{header}\n\n"
+    continuation_header = f"{header} *(cont.)*\n\n"
+
+    for event in events:
+        item = _build_assignment_item(event)
+        prefix = "" if current.endswith("\n\n") else "\n\n"
+        candidate = f"{current}{prefix}{item}"
+        if len(candidate) <= max_len:
+            current = candidate
+        else:
+            batches.append(current.rstrip())
+            current = f"{continuation_header}{item}"
+
+    if current.strip():
+        batches.append(current.rstrip())
+    return batches
 
 
 async def poll_user_id(user_id: int, bot) -> PollResult:
@@ -186,20 +229,18 @@ async def poll_user_id(user_id: int, bot) -> PollResult:
         await session.commit()
 
     # Send notifications outside the DB session
-    for e in new_events:
-        card = _build_assignment_card(e, is_reminder=False)
+    for batch in _build_assignment_batches(new_events, is_reminder=False):
         await bot.send_message(
             chat_id=chat_id,
-            text=card,
+            text=batch,
             parse_mode="Markdown",
             disable_web_page_preview=True,
         )
 
-    for e in reminder_events:
-        card = _build_assignment_card(e, is_reminder=True)
+    for batch in _build_assignment_batches(reminder_events, is_reminder=True):
         await bot.send_message(
             chat_id=chat_id,
-            text=card,
+            text=batch,
             parse_mode="Markdown",
             disable_web_page_preview=True,
         )

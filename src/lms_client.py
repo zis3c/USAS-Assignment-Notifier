@@ -118,32 +118,99 @@ def _extract_subject_code(text: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
+def _clean_subject_name(value: str) -> str:
+    text = " ".join((value or "").split()).strip()
+    if not text:
+        return ""
+
+    # Strip a leading subject code if it is followed by real subject words.
+    match = re.match(r"^[A-Z]{2,4}\d{3,4}\s*[-:|]?\s+(.+)$", text, flags=re.IGNORECASE)
+    if match and match.group(1).strip():
+        return match.group(1).strip()
+
+    return text
+
+
+def extract_course_name_map(html: str) -> Dict[str, str]:
+    """Build a mapping such as KSC6433 -> FINANCIAL TECHNOLOGY from dashboard cards."""
+    soup = BeautifulSoup(html, "html.parser")
+    mapping: Dict[str, str] = {}
+    for card in soup.select("div.container1"):
+        code_el = card.find("b")
+        if not code_el:
+            continue
+        code = _extract_subject_code(code_el.get_text(" ", strip=True))
+        if not code:
+            continue
+        full_text = card.get_text(" ", strip=True)
+        name = re.sub(rf"^\s*{re.escape(code)}\s*", "", full_text, flags=re.IGNORECASE).strip(" -:|")
+        name = " ".join(name.split())
+        if name:
+            mapping[code] = name
+    return mapping
+
+
 def _extract_subject(raw: Dict[str, Any], title: str) -> Optional[str]:
+    subject_full: Optional[str] = None
+    subject_code: Optional[str] = None
+
+    def _consume(value: Any) -> None:
+        nonlocal subject_full, subject_code
+        if not isinstance(value, str) or not value.strip():
+            return
+        cleaned = _clean_subject_name(value)
+        if not cleaned:
+            return
+        code = _extract_subject_code(cleaned)
+        is_code_only = bool(code and cleaned.upper() == code)
+        if is_code_only:
+            if subject_code is None:
+                subject_code = code
+        else:
+            if subject_full is None:
+                subject_full = cleaned
+
     course = raw.get("course")
     if isinstance(course, dict):
-        for key in ("shortname", "fullname", "displayname"):
-            value = course.get(key)
-            if isinstance(value, str) and value.strip():
-                code = _extract_subject_code(value)
-                return code or value.strip()
+        for key in ("fullname", "displayname", "shortname"):
+            _consume(course.get(key))
     elif isinstance(course, str) and course.strip():
-        code = _extract_subject_code(course)
-        return code or course.strip()
+        _consume(course)
 
     for key in (
+        "coursefullname",
+        "course_name",
+        "coursename",
         "course_shortname",
         "courseshortname",
         "coursecode",
-        "course_name",
-        "coursename",
-        "coursefullname",
     ):
-        value = raw.get(key)
-        if isinstance(value, str) and value.strip():
-            code = _extract_subject_code(value)
-            return code or value.strip()
+        _consume(raw.get(key))
 
-    return _extract_subject_code(title)
+    _consume(title)
+    return subject_full or subject_code
+
+
+def enrich_event_subjects(events: List[Dict[str, Any]], html: str) -> List[Dict[str, Any]]:
+    """Replace subject codes with full course names when possible."""
+    course_map = extract_course_name_map(html)
+    if not course_map:
+        return events
+
+    enriched: List[Dict[str, Any]] = []
+    for event in events:
+        item = dict(event)
+        subject = (item.get("subject") or "").strip()
+        code = _extract_subject_code(subject)
+        if code and subject.upper() == code:
+            item["subject"] = course_map.get(code, subject)
+        elif not subject:
+            title_code = _extract_subject_code(item.get("title") or "")
+            if title_code and title_code in course_map:
+                item["subject"] = course_map[title_code]
+        enriched.append(item)
+
+    return enriched
 
 
 
@@ -270,6 +337,7 @@ class LMSClient:
 
             if not events:
                 events = parse_events_from_html(html)
+            events = enrich_event_subjects(events, html)
 
             cookie = self._extract_session_cookie(session)
             return FetchResult(events=events, session_cookie=cookie, dashboard_html=html)

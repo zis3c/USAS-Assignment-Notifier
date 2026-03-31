@@ -193,7 +193,8 @@ async def check_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if result.new_count > 0:
         msg = strings.CHECK_NEW.format(count=result.new_count)
     elif result.pending_count > 0:
-        msg = strings.CHECK_PENDING.format(count=result.pending_count)
+        # For pending assignments, reminder cards are sent without extra summary text.
+        return
     else:
         msg = strings.CHECK_NO_NEW
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=keyboards.main_menu())
