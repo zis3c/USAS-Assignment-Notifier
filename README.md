@@ -43,7 +43,7 @@ Access these by sending `/admin` (if your ID is set as `ADMIN_ID` in `.env`):
 - **Broadcast**: Send a message to all active users.
 - **Server Performance**: Real-time CPU, RAM, and Disk usage monitoring.
 - **Maint. Mode**: Toggle global maintenance.
-- **Get Logs**: Download the latest bot logs directly.
+- **View Logs**: Download the latest bot logs directly.
 
 ## 🚀 Deployment (Render)
 

@@ -129,13 +129,17 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     user_id = update.effective_user.id
-    username = update.effective_user.username or "unknown"
+    actor_name = (
+        update.effective_user.first_name
+        or update.effective_user.username
+        or "unknown"
+    )
     text = update.message.text
     
     # --- Activity Logging (Sensitive Data Masking) ---
     safe_buttons = [
         "Check Now", "Status", "Help", "Register", "Logout", "Main Menu",
-        "User Stats", "User List", "Poll All Now", "Get Logs", "Broadcast",
+        "User Stats", "User List", "Poll All Now", "View Logs", "Broadcast",
         "Find User", "Ban/Unban", "Backup DB", "Maint. Mode", "Confirm Sending", "Cancel"
     ]
     
@@ -146,7 +150,7 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if context.user_data.get("is_typing_password"):
         log_text = "[PASSWORD MASKED]"
 
-    logger.info(f"👤 Activity: {username} ({user_id}) -> {log_text}")
+    logger.info(f"👤 Activity: {actor_name} ({user_id}) -> {log_text}")
 
     # --- New Activity Log (Clean Format) ---
     action = "MSG"

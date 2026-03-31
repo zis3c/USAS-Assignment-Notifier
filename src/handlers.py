@@ -107,7 +107,7 @@ async def help_back_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def help_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         strings.HELP_DETAIL,
-        parse_mode="MarkDown",
+        parse_mode="Markdown",
         reply_markup=keyboards.main_menu(),
     )
 
@@ -190,11 +190,17 @@ async def check_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except TelegramError:
         pass
 
-    if result.new_count > 0:
+    if result.error == "auth_failed":
+        msg = strings.LOGIN_FAILED
+    elif result.error:
+        msg = strings.CHECK_TEMP_ERROR
+    elif result.new_count > 0:
         msg = strings.CHECK_NEW.format(count=result.new_count)
     elif result.pending_count > 0:
-        # For pending assignments, reminder cards are sent without extra summary text.
-        return
+        # If a reminder card was already sent in this run, avoid duplicate summary noise.
+        if result.reminder_count > 0:
+            return
+        msg = strings.CHECK_PENDING_ONLY.format(count=result.pending_count)
     else:
         msg = strings.CHECK_NO_NEW
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=keyboards.main_menu())
@@ -783,24 +789,6 @@ def broadcast_conversation() -> ConversationHandler:
         name="broadcast",
         persistent=False
     )
-
-async def check_banned(user_id: int) -> bool:
-    """Check if a user is banned."""
-    async with AsyncSessionLocal() as session:
-        res = await session.execute(select(User).where(User.chat_id == str(user_id)))
-        user = res.scalar_one_or_none()
-        return user.is_banned if user else False
-
-
-async def check_maintenance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Check if the system is in maintenance mode."""
-    async with AsyncSessionLocal() as session:
-        res = await session.execute(select(SystemSettings).limit(1))
-        settings = res.scalar_one_or_none()
-        if settings and settings.is_maintenance:
-            await update.message.reply_text(strings.ADMIN_MAINTENANCE_ACTIVE_MSG, parse_mode="Markdown")
-            return True
-    return False
 
 
 def register_conversation() -> ConversationHandler:

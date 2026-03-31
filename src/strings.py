@@ -136,20 +136,30 @@ CHECK_NEW = (
     "Check the notifications above. 👆"
 )
 
+CHECK_PENDING_ONLY = (
+    "*📌 Pending assignments*\n\n"
+    "You still have *{count}* pending assignment(s)."
+)
+
+CHECK_TEMP_ERROR = (
+    "*⚠️ LMS check failed.*\n\n"
+    "I couldn't read your LMS right now. Please try again in a moment."
+)
+
 # ── Assignment Notification Card ──────────────────────────────────────────────
 
-NEW_ASSIGNMENT_HEADER = "*📚 New Assignment*"
-PENDING_ASSIGNMENT_HEADER = "*📌 Pending Assignment Reminder*"
+NEW_ASSIGNMENT_HEADER = "📚 <b>New Assignment</b>"
+PENDING_ASSIGNMENT_HEADER = "📌 <b>Pending Assignment Reminder</b>"
 ASSIGNMENT_ITEM = (
     "{subject_line}"
-    "Title: *{title}*\n"
+    "Title: <b>{title}</b>\n"
     "{due_line}"
     "{link_line}"
 )
 
-ASSIGNMENT_SUBJECT_LINE = "Subject: {subject}\n"
-ASSIGNMENT_DUE_LINE = "Due: *{due}*\n"
-ASSIGNMENT_LINK_LINE = "🔗 [Link]({link})"
+ASSIGNMENT_SUBJECT_LINE = "Subject: <b>{subject}</b>\n"
+ASSIGNMENT_DUE_LINE = "Due: <b>{due}</b>\n"
+ASSIGNMENT_LINK_LINE = "🔗 <a href=\"{link}\">Link</a>"
 
 # ── Admin Dashboard ───────────────────────────────────────────────────────────
 

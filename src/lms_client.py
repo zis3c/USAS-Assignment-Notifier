@@ -15,6 +15,10 @@ from src import config
 logger = logging.getLogger(__name__)
 
 
+class LMSAuthenticationError(Exception):
+    """Raised when LMS authentication fails."""
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def is_login_url(url: str) -> bool:
@@ -325,7 +329,7 @@ class LMSClient:
             connector=aiohttp.TCPConnector(ssl=False),
             timeout=timeout
         ) as session:
-            html, logged_in = await self._get_dashboard_html(session)
+            html, _ = await self._get_dashboard_html(session)
             sesskey = extract_sesskey(html)
             course_id, category_id, _ = extract_calendar_context(html)
 
@@ -374,7 +378,7 @@ class LMSClient:
             
             if is_login_url(final_url):
                 logger.warning("Login FAILED for %s (still at login URL: %s)", self.student_id, final_url)
-                return lms_html
+                raise LMSAuthenticationError("LMS authentication failed.")
             else:
                 logger.info("Login SUCCESS for %s", self.student_id)
                 return lms_html

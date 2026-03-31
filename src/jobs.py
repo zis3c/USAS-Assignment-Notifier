@@ -3,6 +3,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from html import escape
 from typing import Optional
 
 from cryptography.fernet import InvalidToken
@@ -11,7 +12,7 @@ from sqlalchemy import select
 from src import config, strings
 from src.crypto import decrypt_text, encrypt_text
 from src.database import AsyncSessionLocal, get_utc_now
-from src.lms_client import LMSClient, extract_user_name
+from src.lms_client import LMSAuthenticationError, LMSClient, extract_user_name
 from src.models import User, UserEvent
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ class PollResult:
     new_count: int = 0
     reminder_count: int = 0
     pending_count: int = 0
+    error: Optional[str] = None
 
 
 def _to_utc_naive(value: Optional[datetime]) -> Optional[datetime]:
@@ -40,7 +42,7 @@ def _to_local_display(value: datetime) -> str:
 
 def _is_pending(due_at: Optional[datetime], now_utc: datetime) -> bool:
     if due_at is None:
-        return True
+        return False
     return due_at >= now_utc
 
 
@@ -100,17 +102,18 @@ def _build_assignment_item(event: dict) -> str:
     due_at = _to_utc_naive(event.get("due_at"))
     due_line = ""
     if isinstance(due_at, datetime):
-        due_line = strings.ASSIGNMENT_DUE_LINE.format(due=_to_local_display(due_at))
+        due_line = strings.ASSIGNMENT_DUE_LINE.format(due=escape(_to_local_display(due_at)))
 
     link = event.get("link") or ""
-    link_line = strings.ASSIGNMENT_LINK_LINE.format(link=link) if link else ""
+    link_line = strings.ASSIGNMENT_LINK_LINE.format(link=escape(link, quote=True)) if link else ""
 
     subject = _format_subject((event.get("subject") or "").strip())
-    subject_line = strings.ASSIGNMENT_SUBJECT_LINE.format(subject=subject) if subject else ""
+    subject_line = strings.ASSIGNMENT_SUBJECT_LINE.format(subject=escape(subject)) if subject else ""
+    title = escape(str(event.get("title") or "Assignment"))
 
     return strings.ASSIGNMENT_ITEM.format(
         subject_line=subject_line,
-        title=event["title"],
+        title=title,
         due_line=due_line,
         link_line=link_line,
     )
@@ -124,7 +127,7 @@ def _build_assignment_batches(events: list[dict], is_reminder: bool) -> list[str
     max_len = 3900
     batches: list[str] = []
     current = f"{header}\n\n"
-    continuation_header = f"{header} *(cont.)*\n\n"
+    continuation_header = f"{header} (cont.)\n\n"
 
     for event in events:
         item = _build_assignment_item(event)
@@ -162,7 +165,15 @@ async def poll_user_id(user_id: int, bot) -> PollResult:
                 session_cookie = None
 
         client = LMSClient(user.student_id, password, session_cookie)
-        fetch_result = await client.fetch_events()
+        try:
+            fetch_result = await client.fetch_events()
+        except LMSAuthenticationError:
+            logger.warning("LMS authentication failed for user %s", user_id)
+            return PollResult(error="auth_failed")
+        except Exception as exc:
+            logger.exception("LMS fetch failed for user %s: %s", user_id, exc)
+            return PollResult(error="fetch_failed")
+
         events = fetch_result.events
         now_utc = get_utc_now()
         chat_id = user.chat_id
@@ -233,7 +244,7 @@ async def poll_user_id(user_id: int, bot) -> PollResult:
         await bot.send_message(
             chat_id=chat_id,
             text=batch,
-            parse_mode="Markdown",
+            parse_mode="HTML",
             disable_web_page_preview=True,
         )
 
@@ -241,7 +252,7 @@ async def poll_user_id(user_id: int, bot) -> PollResult:
         await bot.send_message(
             chat_id=chat_id,
             text=batch,
-            parse_mode="Markdown",
+            parse_mode="HTML",
             disable_web_page_preview=True,
         )
 
