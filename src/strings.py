@@ -131,6 +131,11 @@ CHECK_NO_NEW = (
     "*No* new *assignments* found since your last check."
 )
 
+CHECK_PENDING = (
+    "*📌 Pending assignments detected*\n\n"
+    "No *new* assignments found, but you still have *{count}* pending task(s)."
+)
+
 CHECK_NEW = (
     "*📬 Done!* Found *{count}* new assignment(s).\n"
     "Check the notifications above. 👆"
@@ -140,11 +145,21 @@ CHECK_NEW = (
 
 ASSIGNMENT_CARD = (
     "*📚 New Task*\n\n"
+    "{subject_line}"
     "Title: *{title}*\n"
     "{due_line}"
     "{link_line}"
 )
 
+PENDING_ASSIGNMENT_CARD = (
+    "*📌 Pending Task Reminder*\n\n"
+    "{subject_line}"
+    "Title: *{title}*\n"
+    "{due_line}"
+    "{link_line}"
+)
+
+ASSIGNMENT_SUBJECT_LINE = "Subject: *{subject}*\n"
 ASSIGNMENT_DUE_LINE = "Due: *{due}*\n"
 ASSIGNMENT_LINK_LINE = "🔗 [Link]({link})"
 

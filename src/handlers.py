@@ -183,14 +183,19 @@ async def check_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     waiting = await update.message.reply_text(strings.CHECK_RUNNING, parse_mode="Markdown")
-    count = await poll_user_id(user_id, context.application.bot)
+    result = await poll_user_id(user_id, context.application.bot)
 
     try:
         await waiting.delete()
     except TelegramError:
         pass
 
-    msg = strings.CHECK_NEW.format(count=count) if count > 0 else strings.CHECK_NO_NEW
+    if result.new_count > 0:
+        msg = strings.CHECK_NEW.format(count=result.new_count)
+    elif result.pending_count > 0:
+        msg = strings.CHECK_PENDING.format(count=result.pending_count)
+    else:
+        msg = strings.CHECK_NO_NEW
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=keyboards.main_menu())
     
     # Log the result
@@ -198,7 +203,7 @@ async def check_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         update.effective_user.first_name or "Unknown",
         update.effective_user.id,
         "CHECK_MEMBERSHIP",
-        f"Matric: {user_id} | Result: {'SUCCESS' if count >= 0 else 'FAILED'}"
+        f"Matric: {user_id} | New: {result.new_count} | Pending: {result.pending_count} | Reminder: {result.reminder_count}"
     )
 
 

@@ -31,9 +31,11 @@ class UserEvent(Base):
     user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
     event_id = Column(String, nullable=False)
     title = Column(String, nullable=False)
+    subject = Column(String, nullable=True)
     due_at = Column(DateTime, nullable=True)
     link = Column(String, nullable=True)
     first_seen_at = Column(DateTime, default=get_utc_now)
+    last_notified_at = Column(DateTime, nullable=True)
 
     __table_args__ = (UniqueConstraint("user_id", "event_id", name="uq_user_event"),)
 

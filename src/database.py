@@ -45,6 +45,8 @@ def _migrate_db_sqlite() -> None:
     migrations = [
         "ALTER TABLE users ADD COLUMN display_name TEXT",
         "ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0",
+        "ALTER TABLE user_events ADD COLUMN subject TEXT",
+        "ALTER TABLE user_events ADD COLUMN last_notified_at DATETIME",
     ]
     import sqlite3
     conn = sqlite3.connect(config.DB_PATH)

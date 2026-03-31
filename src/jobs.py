@@ -1,6 +1,7 @@
 """Background job functions : periodic LMS polling."""
 import asyncio
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -14,6 +15,40 @@ from src.lms_client import LMSClient, extract_user_name
 from src.models import User, UserEvent
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PollResult:
+    new_count: int = 0
+    reminder_count: int = 0
+    pending_count: int = 0
+
+
+def _to_utc_naive(value: Optional[datetime]) -> Optional[datetime]:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def _to_local_display(value: datetime) -> str:
+    utc_aware = value.replace(tzinfo=timezone.utc)
+    local_dt = utc_aware.astimezone(config.LOCAL_TZ)
+    return local_dt.strftime(f"%d {local_dt.strftime('%b').capitalize()} %y, %I:%M %p").replace("AM", "am").replace("PM", "pm")
+
+
+def _is_pending(due_at: Optional[datetime], now_utc: datetime) -> bool:
+    if due_at is None:
+        return True
+    return due_at >= now_utc
+
+
+def _should_send_reminder(last_notified_at: Optional[datetime], now_utc: datetime) -> bool:
+    if last_notified_at is None:
+        return True
+    seconds_since_last = (now_utc - last_notified_at).total_seconds()
+    return seconds_since_last >= config.REMINDER_INTERVAL_SECONDS
 
 
 async def poll_all_users(context) -> None:
@@ -42,21 +77,39 @@ async def poll_all_users(context) -> None:
     logger.info("📊  Poll cycle completed in %.2fs for %d users.", duration, len(user_ids))
 
 
-async def poll_user_id(user_id: int, bot) -> int:
-    """Poll a single user and send notifications for new assignments.
+def _build_assignment_card(event: dict, is_reminder: bool = False) -> str:
+    due_at = _to_utc_naive(event.get("due_at"))
+    due_line = ""
+    if isinstance(due_at, datetime):
+        due_line = strings.ASSIGNMENT_DUE_LINE.format(due=_to_local_display(due_at))
 
-    Returns the count of new assignments sent.
-    """
+    link = event.get("link") or ""
+    link_line = strings.ASSIGNMENT_LINK_LINE.format(link=link) if link else ""
+
+    subject = (event.get("subject") or "").strip()
+    subject_line = strings.ASSIGNMENT_SUBJECT_LINE.format(subject=subject) if subject else ""
+
+    template = strings.PENDING_ASSIGNMENT_CARD if is_reminder else strings.ASSIGNMENT_CARD
+    return template.format(
+        subject_line=subject_line,
+        title=event["title"],
+        due_line=due_line,
+        link_line=link_line,
+    )
+
+
+async def poll_user_id(user_id: int, bot) -> PollResult:
+    """Poll a single user and send notifications for new and pending assignments."""
     async with AsyncSessionLocal() as session:
         user = await session.get(User, user_id)
         if not user or not user.active:
-            return 0
+            return PollResult()
 
         try:
             password = decrypt_text(user.password_blob)
         except InvalidToken:
             logger.warning("Failed to decrypt password for user %s", user_id)
-            return 0
+            return PollResult()
 
         session_cookie: Optional[str] = None
         if user.session_cookie_blob:
@@ -68,6 +121,8 @@ async def poll_user_id(user_id: int, bot) -> int:
         client = LMSClient(user.student_id, password, session_cookie)
         fetch_result = await client.fetch_events()
         events = fetch_result.events
+        now_utc = get_utc_now()
+        chat_id = user.chat_id
 
         if fetch_result.session_cookie:
             user.session_cookie_blob = encrypt_text(fetch_result.session_cookie)
@@ -78,51 +133,82 @@ async def poll_user_id(user_id: int, bot) -> int:
             if parsed_name:
                 user.display_name = parsed_name
 
-        existing = await session.execute(
-            select(UserEvent.event_id).where(UserEvent.user_id == user.id)
+        existing_result = await session.execute(
+            select(UserEvent).where(UserEvent.user_id == user.id)
         )
-        existing_ids = set(existing.scalars().all())
+        existing_rows = existing_result.scalars().all()
+        existing_by_id = {row.event_id: row for row in existing_rows}
 
-        new_events = [e for e in events if e["id"] not in existing_ids]
-        for e in new_events:
-            session.add(
-                UserEvent(
+        new_events = []
+        reminder_events = []
+        pending_count = 0
+        seen_event_ids = set()
+
+        for event in events:
+            event_id = event["id"]
+            if event_id in seen_event_ids:
+                continue
+            seen_event_ids.add(event_id)
+            due_at = _to_utc_naive(event.get("due_at"))
+            subject = (event.get("subject") or "").strip() or None
+            current = existing_by_id.get(event_id)
+            is_new = current is None
+
+            if is_new:
+                current = UserEvent(
                     user_id=user.id,
-                    event_id=e["id"],
-                    title=e["title"],
-                    due_at=e.get("due_at"),
-                    link=e.get("link"),
+                    event_id=event_id,
+                    title=event["title"],
+                    subject=subject,
+                    due_at=due_at,
+                    link=event.get("link"),
                 )
-            )
+                session.add(current)
+                existing_by_id[event_id] = current
+                new_events.append(event)
+            else:
+                current.title = event["title"]
+                current.subject = subject or current.subject
+                current.due_at = due_at
+                current.link = event.get("link")
+
+            if _is_pending(due_at, now_utc):
+                pending_count += 1
+                if not is_new and _should_send_reminder(current.last_notified_at, now_utc):
+                    reminder_events.append(event)
+
+        for event in [*new_events, *reminder_events]:
+            row = existing_by_id.get(event["id"])
+            if row:
+                row.last_notified_at = now_utc
 
         user.last_checked_at = get_utc_now()
         await session.commit()
 
     # Send notifications outside the DB session
     for e in new_events:
-        due_at = e.get("due_at")
-        due_line = ""
-        if isinstance(due_at, datetime):
-            t = due_at.astimezone(config.LOCAL_TZ)
-            local_time = t.strftime(f"%d {t.strftime('%b').capitalize()} %y, %I:%M %p").replace("AM", "am").replace("PM", "pm")
-            due_line = strings.ASSIGNMENT_DUE_LINE.format(due=local_time)
-
-        link = e.get("link") or ""
-        link_line = strings.ASSIGNMENT_LINK_LINE.format(link=link) if link else ""
-
-        card = strings.ASSIGNMENT_CARD.format(
-            title=e["title"],
-            due_line=due_line,
-            link_line=link_line,
-        )
+        card = _build_assignment_card(e, is_reminder=False)
         await bot.send_message(
-            chat_id=user.chat_id,
+            chat_id=chat_id,
             text=card,
             parse_mode="Markdown",
             disable_web_page_preview=True,
         )
 
-    return len(new_events)
+    for e in reminder_events:
+        card = _build_assignment_card(e, is_reminder=True)
+        await bot.send_message(
+            chat_id=chat_id,
+            text=card,
+            parse_mode="Markdown",
+            disable_web_page_preview=True,
+        )
+
+    return PollResult(
+        new_count=len(new_events),
+        reminder_count=len(reminder_events),
+        pending_count=pending_count,
+    )
 
 
 async def send_daily_logs(context) -> None:

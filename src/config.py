@@ -23,6 +23,7 @@ LMS_BASE_URL: str = os.getenv("LMS_BASE_URL", "https://lms.usas.edu.my").rstrip(
 POLL_INTERVAL_SECONDS: int = int(os.getenv("POLL_INTERVAL_SECONDS", "3600"))
 MAX_CONCURRENCY: int = int(os.getenv("MAX_CONCURRENCY", "10"))
 EVENT_HORIZON_DAYS: int = int(os.getenv("EVENT_HORIZON_DAYS", "30"))
+REMINDER_INTERVAL_SECONDS: int = int(os.getenv("REMINDER_INTERVAL_SECONDS", "3600"))
 ADMIN_ID: int = int(os.getenv("ADMIN_ID", "0"))
 DAILY_LOG_HOUR: int = int(os.getenv("DAILY_LOG_HOUR", "8"))
 DAILY_LOG_MINUTE: int = int(os.getenv("DAILY_LOG_MINUTE", "0"))

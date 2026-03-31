@@ -111,6 +111,41 @@ def extract_user_name(html: str) -> Optional[str]:
     return None
 
 
+def _extract_subject_code(text: str) -> Optional[str]:
+    if not text:
+        return None
+    match = re.search(r"\b([A-Z]{2,4}\d{3,4})\b", text.upper())
+    return match.group(1) if match else None
+
+
+def _extract_subject(raw: Dict[str, Any], title: str) -> Optional[str]:
+    course = raw.get("course")
+    if isinstance(course, dict):
+        for key in ("shortname", "fullname", "displayname"):
+            value = course.get(key)
+            if isinstance(value, str) and value.strip():
+                code = _extract_subject_code(value)
+                return code or value.strip()
+    elif isinstance(course, str) and course.strip():
+        code = _extract_subject_code(course)
+        return code or course.strip()
+
+    for key in (
+        "course_shortname",
+        "courseshortname",
+        "coursecode",
+        "course_name",
+        "coursename",
+        "coursefullname",
+    ):
+        value = raw.get(key)
+        if isinstance(value, str) and value.strip():
+            code = _extract_subject_code(value)
+            return code or value.strip()
+
+    return _extract_subject_code(title)
+
+
 
 
 def parse_events_from_html(html: str) -> List[Dict[str, Any]]:
@@ -119,8 +154,18 @@ def parse_events_from_html(html: str) -> List[Dict[str, Any]]:
     for link in soup.select('a[href*="mod/assign/view.php"]'):
         title = link.get_text(strip=True)
         href = link.get("href")
+        context_text = " ".join(link.stripped_strings)
+        subject = _extract_subject_code(context_text)
         if href:
-            events.append({"id": href, "title": title or "Assignment", "due_at": None, "link": href})
+            events.append(
+                {
+                    "id": href,
+                    "title": title or "Assignment",
+                    "subject": subject,
+                    "due_at": None,
+                    "link": href,
+                }
+            )
     return events
 
 
@@ -136,10 +181,12 @@ def normalize_event(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     due_at = None
     if isinstance(timestart, (int, float)):
         due_at = datetime.fromtimestamp(int(timestart), tz=timezone.utc).replace(tzinfo=None)
+    subject = _extract_subject(raw, str(title))
 
     return {
         "id": str(event_id),
         "title": str(title),
+        "subject": subject,
         "due_at": due_at,
         "link": str(url) if url else None,
         "modulename": raw.get("modulename") or raw.get("modname"),
@@ -332,4 +379,3 @@ class LMSClient:
         cookies = session.cookie_jar.filter_cookies(config.LMS_BASE_URL)
         moodle = cookies.get("MoodleSession")
         return moodle.value if moodle else None
-
