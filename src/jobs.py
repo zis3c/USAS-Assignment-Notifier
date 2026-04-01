@@ -1,6 +1,7 @@
 """Background job functions : periodic LMS polling."""
 import asyncio
 import logging
+import random
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -17,6 +18,12 @@ from src.lms_client import LMSAuthenticationError, LMSClient, extract_user_name
 from src.models import User, UserEvent
 
 logger = logging.getLogger(__name__)
+
+COUNTDOWN_STAGE_FIELD = {
+    3: "reminder_3d_sent_at",
+    2: "reminder_2d_sent_at",
+    1: "reminder_1d_sent_at",
+}
 
 
 @dataclass
@@ -52,6 +59,31 @@ def _should_send_reminder(last_notified_at: Optional[datetime], now_utc: datetim
         return True
     seconds_since_last = (now_utc - last_notified_at).total_seconds()
     return seconds_since_last >= config.REMINDER_INTERVAL_SECONDS
+
+
+def _days_left_local(due_at: datetime, now_utc: datetime) -> int:
+    due_local_date = due_at.replace(tzinfo=timezone.utc).astimezone(config.LOCAL_TZ).date()
+    now_local_date = now_utc.replace(tzinfo=timezone.utc).astimezone(config.LOCAL_TZ).date()
+    return (due_local_date - now_local_date).days
+
+
+def _countdown_stage_days(due_at: Optional[datetime], now_utc: datetime) -> Optional[int]:
+    if due_at is None:
+        return None
+    days_left = _days_left_local(due_at, now_utc)
+    if days_left in COUNTDOWN_STAGE_FIELD:
+        return days_left
+    return None
+
+
+def _countdown_quotes(days_left: int) -> list[str]:
+    if days_left == 3:
+        return strings.COUNTDOWN_QUOTES_3D
+    if days_left == 2:
+        return strings.COUNTDOWN_QUOTES_2D
+    if days_left == 1:
+        return strings.COUNTDOWN_QUOTES_1D
+    return []
 
 
 def _format_subject(subject: str) -> str:
@@ -140,29 +172,50 @@ def _build_assignment_item(event: dict) -> str:
     )
 
 
-def _build_assignment_batches(events: list[dict], is_reminder: bool) -> list[str]:
+def _build_assignment_batches(events: list[dict], header: str) -> list[tuple[str, list[str]]]:
     if not events:
         return []
 
-    header = strings.PENDING_ASSIGNMENT_HEADER if is_reminder else strings.NEW_ASSIGNMENT_HEADER
     max_len = 3900
-    batches: list[str] = []
+    batches: list[tuple[str, list[str]]] = []
     current = f"{header}\n\n"
-    continuation_header = f"{header} (cont.)\n\n"
+    current_event_ids: list[str] = []
+    continuation_header = f"{header}\n\n<b>(cont.)</b>\n\n"
 
     for event in events:
         item = _build_assignment_item(event)
+        event_id = str(event.get("id") or "")
         prefix = "" if current.endswith("\n\n") else "\n\n"
         candidate = f"{current}{prefix}{item}"
         if len(candidate) <= max_len:
             current = candidate
+            if event_id:
+                current_event_ids.append(event_id)
         else:
-            batches.append(current.rstrip())
+            if current_event_ids:
+                batches.append((current.rstrip(), current_event_ids))
             current = f"{continuation_header}{item}"
+            current_event_ids = [event_id] if event_id else []
 
-    if current.strip():
-        batches.append(current.rstrip())
+    if current.strip() and current_event_ids:
+        batches.append((current.rstrip(), current_event_ids))
     return batches
+
+
+def _build_standard_batches(events: list[dict], is_reminder: bool) -> list[tuple[str, list[str]]]:
+    header = strings.PENDING_ASSIGNMENT_HEADER if is_reminder else strings.NEW_ASSIGNMENT_HEADER
+    return _build_assignment_batches(events, header)
+
+
+def _build_countdown_batches(events: list[dict], days_left: int) -> list[tuple[str, list[str]]]:
+    quotes = _countdown_quotes(days_left)
+    if not quotes:
+        return []
+    header = strings.COUNTDOWN_REMINDER_HEADER.format(
+        days=days_left,
+        quote=escape(random.choice(quotes)),
+    )
+    return _build_assignment_batches(events, header)
 
 
 async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False) -> PollResult:
@@ -214,13 +267,14 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
         existing_rows = existing_result.scalars().all()
         existing_by_id = {row.event_id: row for row in existing_rows}
 
-        new_events = []
-        reminder_events = []
+        new_events: list[dict] = []
+        reminder_events: list[dict] = []
+        countdown_events_by_stage: dict[int, list[dict]] = {3: [], 2: [], 1: []}
         pending_count = 0
         seen_event_ids = set()
 
         for event in events:
-            event_id = event["id"]
+            event_id = str(event["id"])
             if event_id in seen_event_ids:
                 continue
             seen_event_ids.add(event_id)
@@ -249,22 +303,33 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
 
             if _is_pending(due_at, now_utc):
                 pending_count += 1
+                if is_new:
+                    continue
+
+                stage_days = _countdown_stage_days(due_at, now_utc)
+                if stage_days in COUNTDOWN_STAGE_FIELD:
+                    stage_field = COUNTDOWN_STAGE_FIELD[stage_days]
+                    if getattr(current, stage_field) is None:
+                        countdown_events_by_stage[stage_days].append(event)
+                    # In countdown windows, motivational reminders replace normal pending reminders.
+                    continue
+
                 should_send = force_pending_reminders or _should_send_reminder(
                     current.last_notified_at, now_utc
                 )
-                if not is_new and should_send:
-                    reminder_events.append(event)
+                if not should_send:
+                    continue
 
-        for event in [*new_events, *reminder_events]:
-            row = existing_by_id.get(event["id"])
-            if row:
-                row.last_notified_at = now_utc
+                reminder_events.append(event)
 
         user.last_checked_at = get_utc_now()
         await session.commit()
 
-    # Send notifications outside the DB session
-    for batch in _build_assignment_batches(new_events, is_reminder=False):
+    # Send notifications outside the DB session.
+    sent_reminder_ids: set[str] = set()
+    sent_stage_ids: dict[int, set[str]] = {3: set(), 2: set(), 1: set()}
+
+    for batch, _ in _build_standard_batches(new_events, is_reminder=False):
         await bot.send_message(
             chat_id=chat_id,
             text=batch,
@@ -272,17 +337,53 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
             disable_web_page_preview=True,
         )
 
-    for batch in _build_assignment_batches(reminder_events, is_reminder=True):
+    for stage in (3, 2, 1):
+        stage_events = countdown_events_by_stage.get(stage, [])
+        if not stage_events:
+            continue
+
+        for batch, event_ids in _build_countdown_batches(stage_events, stage):
+            await bot.send_message(
+                chat_id=chat_id,
+                text=batch,
+                parse_mode="HTML",
+                disable_web_page_preview=True,
+            )
+            sent_reminder_ids.update(event_ids)
+            sent_stage_ids[stage].update(event_ids)
+
+    for batch, event_ids in _build_standard_batches(reminder_events, is_reminder=True):
         await bot.send_message(
             chat_id=chat_id,
             text=batch,
             parse_mode="HTML",
             disable_web_page_preview=True,
         )
+        sent_reminder_ids.update(event_ids)
+
+    if sent_reminder_ids:
+        notified_at = get_utc_now()
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(UserEvent).where(
+                    UserEvent.user_id == user_id,
+                    UserEvent.event_id.in_(list(sent_reminder_ids)),
+                )
+            )
+            rows = result.scalars().all()
+            for row in rows:
+                row.last_notified_at = notified_at
+                if row.event_id in sent_stage_ids[3] and row.reminder_3d_sent_at is None:
+                    row.reminder_3d_sent_at = notified_at
+                if row.event_id in sent_stage_ids[2] and row.reminder_2d_sent_at is None:
+                    row.reminder_2d_sent_at = notified_at
+                if row.event_id in sent_stage_ids[1] and row.reminder_1d_sent_at is None:
+                    row.reminder_1d_sent_at = notified_at
+            await session.commit()
 
     return PollResult(
         new_count=len(new_events),
-        reminder_count=len(reminder_events),
+        reminder_count=len(sent_reminder_ids),
         pending_count=pending_count,
     )
 

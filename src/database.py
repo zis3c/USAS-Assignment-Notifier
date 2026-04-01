@@ -56,6 +56,9 @@ async def _migrate_db_postgres(conn) -> None:
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE",
         "ALTER TABLE user_events ADD COLUMN IF NOT EXISTS subject TEXT",
         "ALTER TABLE user_events ADD COLUMN IF NOT EXISTS last_notified_at TIMESTAMP",
+        "ALTER TABLE user_events ADD COLUMN IF NOT EXISTS reminder_3d_sent_at TIMESTAMP",
+        "ALTER TABLE user_events ADD COLUMN IF NOT EXISTS reminder_2d_sent_at TIMESTAMP",
+        "ALTER TABLE user_events ADD COLUMN IF NOT EXISTS reminder_1d_sent_at TIMESTAMP",
     ]
     for sql in migrations:
         try:
@@ -73,6 +76,9 @@ def _migrate_db_sqlite() -> None:
         "ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0",
         "ALTER TABLE user_events ADD COLUMN subject TEXT",
         "ALTER TABLE user_events ADD COLUMN last_notified_at DATETIME",
+        "ALTER TABLE user_events ADD COLUMN reminder_3d_sent_at DATETIME",
+        "ALTER TABLE user_events ADD COLUMN reminder_2d_sent_at DATETIME",
+        "ALTER TABLE user_events ADD COLUMN reminder_1d_sent_at DATETIME",
     ]
     import sqlite3
     conn = sqlite3.connect(config.DB_PATH)

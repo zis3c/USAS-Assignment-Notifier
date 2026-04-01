@@ -146,6 +146,51 @@ CHECK_TEMP_ERROR = (
     "I couldn't read your LMS right now. Please try again in a moment."
 )
 
+COUNTDOWN_REMINDER_HEADER = (
+    "📌 <b>Pending Assignment Reminder</b>\n\n"
+    "<b>{days} day(s) before deadline</b>\n"
+    "<i>{quote}</i>"
+)
+
+COUNTDOWN_QUOTES_3D = [
+    "Weh bangun. Sekarang. Bukan nanti. SEKARANG.",
+    "Kau dah tak ada masa nak fikir. Terus buat.",
+    "Perfect buang jauh. SIAP itu target.",
+    "Kalau kau tak start dalam 5 minit ni, kau sendiri pilih untuk fail.",
+    "Stop scroll. Letak phone. Buka laptop. Buat kerja.",
+    "Jangan tunggu mood. Mood takkan datang. Kau kena paksa.",
+    "Buat yang paling penting dulu. Yang lain kalau sempat baru tambah.",
+    "Tak payah cantik. Janji cukup syarat dan boleh submit.",
+    "Kau ada maybe 10 sampai 15 jam je betul-betul produktif. Guna.",
+    "Kalau kau tangguh lagi sekarang, memang habis.",
+]
+
+COUNTDOWN_QUOTES_2D = [
+    "Dengar sini. Kau dah hampir habis masa. Start sekarang atau memang bye.",
+    "Jangan duduk lagi. Buka laptop. Buat kerja. Sekarang.",
+    "Tak ada 'kejap lagi'. Itu ayat orang gagal.",
+    "Kau nak lulus atau nak bagi alasan? Pilih sekarang.",
+    "Perfect tu untuk orang yang start awal. Kau tak layak fikir tu dah.",
+    "Set timer 30 minit. Buat tanpa berhenti. Ulang sampai siap.",
+    "Kalau kau buka phone lagi, memang kau sabotage diri sendiri.",
+    "Tak payah fikir susah ke senang. Kau buat je sampai siap.",
+    "Ini bukan pasal rajin. Ini pasal kau nak selamat atau tak.",
+    "Kalau kau tak siap, itu bukan sebab susah. Itu sebab kau tak buat.",
+]
+
+COUNTDOWN_QUOTES_1D = [
+    "KAU BUAT APA LAGI NI?? DEADLINE ESOK.",
+    "STOP SEMUA BENDA. BUKA LAPTOP. BUAT KERJA SEKARANG.",
+    "TAK PAYAH BAGI ALASAN. TAK ADA SIAPA NAK DENGAR.",
+    "KAU NAK LULUS KE TAK? SIMPLE JE SOALAN TU.",
+    "JANGAN TUNGGU MOOD. MOOD TAKKAN DATANG.",
+    "PERFECT? LUPA. SIAPKAN DULU BARU CERITA.",
+    "SET TIMER. DUDUK. BUAT. JANGAN BERHENTI.",
+    "PHONE TU LETAK JAUH. KALAU TAK, MEMANG KAU YANG ROSAKKAN DIRI SENDIRI.",
+    "KAU ADA SATU HARI JE. JANGAN BUANG LAGI MASA.",
+    "KALAU KAU MASIH TAK START SEKARANG, MEMANG KAU YANG PILIH UNTUK FAIL.",
+]
+
 # ── Assignment Notification Card ──────────────────────────────────────────────
 
 NEW_ASSIGNMENT_HEADER = "📚 <b>New Assignment</b>"
