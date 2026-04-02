@@ -324,8 +324,8 @@ async def timetable(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     photo_file = BytesIO(photo_bytes)
     photo_file.name = "usas_timetable.png"
 
-    await update.message.reply_photo(
-        photo=photo_file,
+    await update.message.reply_document(
+        document=photo_file,
         reply_markup=keyboards.main_menu(),
     )
 

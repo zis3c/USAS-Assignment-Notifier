@@ -54,9 +54,9 @@ def _subject_color(seed: str) -> Tuple[int, int, int]:
     """Deterministic color: same subject code always gets same color."""
     digest = md5(seed.encode("utf-8")).hexdigest()
     hue = int(digest[:4], 16) / 65535.0
-    sat = 0.50 + (int(digest[4:6], 16) / 255.0) * 0.25
-    val = 0.70 + (int(digest[6:8], 16) / 255.0) * 0.20
-    r, g, b = colorsys.hsv_to_rgb(hue, min(max(sat, 0.50), 0.82), min(max(val, 0.66), 0.92))
+    sat = 0.62 + (int(digest[4:6], 16) / 255.0) * 0.22
+    val = 0.56 + (int(digest[6:8], 16) / 255.0) * 0.22
+    r, g, b = colorsys.hsv_to_rgb(hue, min(max(sat, 0.62), 0.86), min(max(val, 0.56), 0.80))
     return int(r * 255), int(g * 255), int(b * 255)
 
 
@@ -116,14 +116,14 @@ def _visible_slot_count(entries: List[Dict[str, object]]) -> int:
 
 
 def _pick_code_font(draw: ImageDraw.ImageDraw, text: str, max_w: int, max_h: int) -> ImageFont.ImageFont:
-    for size in (40, 38, 36, 34, 32, 30, 28, 26, 24, 22, 20, 18):
+    for size in (42, 40, 38, 36, 34, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10):
         font = _load_font(size, bold=True)
-        bbox = draw.textbbox((0, 0), text, font=font)
-        text_w = bbox[2] - bbox[0]
+        text_w = draw.textlength(text, font=font)
+        bbox = draw.textbbox((0, 0), "Ag", font=font)
         text_h = bbox[3] - bbox[1]
         if text_w <= max_w and text_h <= max_h:
             return font
-    return _load_font(18, bold=True)
+    return _load_font(10, bold=True)
 
 
 def render_timetable_image(
@@ -138,7 +138,7 @@ def render_timetable_image(
     _ = generated_at
 
     width, height = 1080, 1920
-    img = Image.new("RGB", (width, height), (247, 249, 252))
+    img = Image.new("RGB", (width, height), (12, 16, 24))
     draw = ImageDraw.Draw(img)
 
     day_font = _load_font(26, bold=True)
@@ -161,9 +161,9 @@ def render_timetable_image(
     day_w = days_width / day_count
     slot_h = days_height / visible_slots
 
-    draw.rounded_rectangle((grid_left, grid_top, grid_right, grid_bottom), radius=22, fill=(255, 255, 255))
-    draw.rectangle((grid_left, grid_top, grid_right, days_top), fill=(250, 252, 255))
-    draw.rectangle((grid_left, grid_top, days_left, grid_bottom), fill=(250, 252, 255))
+    draw.rounded_rectangle((grid_left, grid_top, grid_right, grid_bottom), radius=22, fill=(20, 24, 34))
+    draw.rectangle((grid_left, grid_top, grid_right, days_top), fill=(24, 29, 40))
+    draw.rectangle((grid_left, grid_top, days_left, grid_bottom), fill=(24, 29, 40))
 
     # X-axis = day (compact letters)
     for day_idx, short_label in enumerate(DAY_SHORT_LABELS):
@@ -171,24 +171,24 @@ def render_timetable_image(
         x1 = int(days_left + (day_idx + 1) * day_w)
         cx = x0 + ((x1 - x0) // 2)
         label_w = int(draw.textlength(short_label, font=day_font))
-        draw.text((cx - (label_w // 2), grid_top + 20), short_label, fill=(42, 57, 78), font=day_font)
-        draw.line((x0, grid_top, x0, grid_bottom), fill=(228, 234, 242), width=1)
-    draw.line((grid_right, grid_top, grid_right, grid_bottom), fill=(228, 234, 242), width=1)
+        draw.text((cx - (label_w // 2), grid_top + 20), short_label, fill=(213, 223, 239), font=day_font)
+        draw.line((x0, grid_top, x0, grid_bottom), fill=(47, 56, 73), width=1)
+    draw.line((grid_right, grid_top, grid_right, grid_bottom), fill=(47, 56, 73), width=1)
 
     # Y-axis = 24h compact periods (08-09, 13-14, ...)
     for slot_idx in range(visible_slots):
         y0 = int(days_top + slot_idx * slot_h)
         y1 = int(days_top + (slot_idx + 1) * slot_h)
-        fill = (254, 255, 255) if slot_idx % 2 == 0 else (251, 253, 255)
+        fill = (22, 27, 38) if slot_idx % 2 == 0 else (25, 30, 42)
         draw.rectangle((days_left + 1, y0 + 1, grid_right - 1, y1 - 1), fill=fill)
-        draw.line((grid_left, y0, grid_right, y0), fill=(235, 239, 246), width=1)
+        draw.line((grid_left, y0, grid_right, y0), fill=(45, 54, 71), width=1)
 
         label = _hour_range_label(slot_idx)
-        draw.text((grid_left + 16, y0 + int((y1 - y0) * 0.32)), label, fill=(70, 84, 106), font=time_font)
+        draw.text((grid_left + 16, y0 + int((y1 - y0) * 0.32)), label, fill=(166, 182, 206), font=time_font)
 
-    draw.line((grid_left, days_top, grid_right, days_top), fill=(220, 227, 238), width=2)
-    draw.line((days_left, grid_top, days_left, grid_bottom), fill=(220, 227, 238), width=2)
-    draw.line((grid_left, grid_bottom, grid_right, grid_bottom), fill=(235, 239, 246), width=1)
+    draw.line((grid_left, days_top, grid_right, days_top), fill=(65, 76, 97), width=2)
+    draw.line((days_left, grid_top, days_left, grid_bottom), fill=(65, 76, 97), width=2)
+    draw.line((grid_left, grid_bottom, grid_right, grid_bottom), fill=(45, 54, 71), width=1)
 
     # Class blocks: code only (no time/place inside block)
     for entry in entries:
@@ -221,7 +221,7 @@ def render_timetable_image(
         content_w = max(20, x1 - x0 - 12)
         content_h = max(20, y1 - y0 - 12)
         code_font = _pick_code_font(draw, code, content_w, content_h)
-        code_label = _fit_single_line(draw, code, code_font, content_w)
+        code_label = code
         bbox = draw.textbbox((0, 0), code_label, font=code_font)
         text_w = bbox[2] - bbox[0]
         text_h = bbox[3] - bbox[1]
