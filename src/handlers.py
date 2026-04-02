@@ -5,7 +5,6 @@ import os
 import shutil
 import time
 from io import BytesIO
-from html import escape
 from datetime import datetime, timezone
 import psutil
 
@@ -30,7 +29,7 @@ from src.lms_client import LMSAuthenticationError, LMSClient, extract_user_name,
 from src.models import User, SystemSettings
 from src.sheets_client import sheets_client
 from src.logging_utils import log_activity
-from src.timetable_renderer import build_timetable_text_fallback, render_timetable_image
+from src.timetable_renderer import render_timetable_image
 
 logger = logging.getLogger(__name__)
 
@@ -325,24 +324,8 @@ async def timetable(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     photo_file = BytesIO(photo_bytes)
     photo_file.name = "usas_timetable.png"
 
-    caption = strings.TIMETABLE_IMAGE_CAPTION.format(
-        name=escape(display_name),
-        generated=generated_local.strftime("%d %b %Y, %I:%M %p"),
-    )
     await update.message.reply_photo(
         photo=photo_file,
-        caption=caption,
-        parse_mode="HTML",
-    )
-
-    text_fallback = build_timetable_text_fallback(
-        timetable_result.entries,
-        timetable_result.time_slots,
-    )
-    await update.message.reply_text(
-        text_fallback,
-        parse_mode="HTML",
-        disable_web_page_preview=True,
         reply_markup=keyboards.main_menu(),
     )
 

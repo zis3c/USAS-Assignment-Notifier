@@ -87,7 +87,7 @@ async def post_init(app: Application) -> None:
                 BotCommand("register", "Link your LMS account"),
                 BotCommand("status", "View your account status"),
                 BotCommand("check", "Check for new assignments now"),
-                BotCommand("timetable", "Generate your weekly timetable"),
+                BotCommand("timetable", "Show your class schedule"),
                 BotCommand("help", "How to use this bot"),
                 BotCommand("logout", "Logout / Remove account"),
             ]

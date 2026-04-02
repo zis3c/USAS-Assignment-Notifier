@@ -1,12 +1,13 @@
-"""Portrait timetable renderer for Telegram photo output."""
+"""Portrait class schedule renderer for Telegram photo output."""
 
 from __future__ import annotations
 
+import colorsys
 from datetime import datetime
 from hashlib import md5
 from html import escape
 from io import BytesIO
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -35,20 +36,13 @@ def _load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
 
 
 def _subject_color(seed: str) -> Tuple[int, int, int]:
+    """Deterministic color: same subject code -> same color."""
     digest = md5(seed.encode("utf-8")).hexdigest()
-    # Pick from strong but readable palette.
-    palette = [
-        (24, 119, 242),
-        (41, 163, 85),
-        (242, 153, 74),
-        (220, 53, 69),
-        (111, 66, 193),
-        (0, 166, 153),
-        (255, 99, 71),
-        (0, 128, 255),
-    ]
-    index = int(digest[:2], 16) % len(palette)
-    return palette[index]
+    hue = int(digest[:4], 16) / 65535.0
+    sat = 0.56 + (int(digest[4:6], 16) / 255.0) * 0.24
+    val = 0.70 + (int(digest[6:8], 16) / 255.0) * 0.20
+    r, g, b = colorsys.hsv_to_rgb(hue, min(max(sat, 0.52), 0.84), min(max(val, 0.66), 0.93))
+    return int(r * 255), int(g * 255), int(b * 255)
 
 
 def _fit_single_line(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, max_width: int) -> str:
@@ -71,131 +65,130 @@ def _slot_range(entry: Dict[str, object], time_slots: List[Tuple[str, str]]) -> 
     return f"{time_slots[start][0]} - {time_slots[end_slot][1]}"
 
 
+def _subject_code(entry: Dict[str, object]) -> str:
+    """Render code-only for timetable blocks."""
+    code = str(entry.get("subject_code") or "").strip()
+    if code:
+        return code.upper()
+    fallback = str(entry.get("subject") or "SUBJECT").strip()
+    return fallback.split(" ", 1)[0].upper() if fallback else "SUBJECT"
+
+
 def render_timetable_image(
     entries: List[Dict[str, object]],
     time_slots: List[Tuple[str, str]],
     student_name: str,
     generated_at: datetime,
 ) -> bytes:
-    """Render a 1080x1920 portrait timetable image and return PNG bytes."""
+    """Render a 1080x1920 portrait class schedule and return PNG bytes."""
+    _ = student_name
+    _ = generated_at
+
     width, height = 1080, 1920
-    img = Image.new("RGB", (width, height), (241, 246, 255))
+    img = Image.new("RGB", (width, height), (239, 245, 255))
     draw = ImageDraw.Draw(img)
 
-    # Soft vertical gradient background.
     for y in range(height):
         ratio = y / height
-        r = int(241 - (ratio * 18))
-        g = int(246 - (ratio * 10))
-        b = int(255 - (ratio * 6))
+        r = int(241 - (ratio * 14))
+        g = int(247 - (ratio * 9))
+        b = int(255 - (ratio * 7))
         draw.line([(0, y), (width, y)], fill=(r, g, b))
 
-    title_font = _load_font(52, bold=True)
-    subtitle_font = _load_font(26)
-    small_font = _load_font(20)
-    block_title_font = _load_font(20, bold=True)
-    block_meta_font = _load_font(16)
+    day_font = _load_font(22, bold=True)
+    time_font = _load_font(18, bold=True)
+    subject_font = _load_font(22, bold=True)
+    meta_font = _load_font(16)
 
-    # Header
-    draw.rounded_rectangle((36, 36, width - 36, 220), radius=28, fill=(21, 38, 74))
-    draw.text((64, 66), "USAS Timetable Factory", fill=(255, 255, 255), font=title_font)
-    draw.text(
-        (64, 132),
-        _fit_single_line(draw, f"Student: {student_name or 'Unknown'}", subtitle_font, width - 220),
-        fill=(217, 228, 255),
-        font=subtitle_font,
-    )
-    generated_str = generated_at.strftime("%d %b %Y, %I:%M %p")
-    draw.text((64, 172), f"Generated: {generated_str}", fill=(181, 199, 237), font=small_font)
+    grid_left = 22
+    grid_top = 42
+    grid_right = width - 22
+    grid_bottom = height - 34
+    left_time_col_w = 166
+    top_day_row_h = 86
 
-    grid_left = 36
-    grid_top = 270
-    grid_right = width - 36
-    grid_bottom = height - 64
-    day_col_width = 138
     slot_count = max(len(time_slots), 16)
-    timeline_left = grid_left + day_col_width
-    timeline_width = grid_right - timeline_left
-    slot_width = timeline_width / slot_count
-    row_height = (grid_bottom - grid_top) / 7
+    day_count = len(DAY_ORDER)
 
-    # Grid container.
-    draw.rounded_rectangle((grid_left, grid_top, grid_right, grid_bottom), radius=26, fill=(255, 255, 255))
+    days_left = grid_left + left_time_col_w
+    days_top = grid_top + top_day_row_h
+    days_width = grid_right - days_left
+    days_height = grid_bottom - days_top
+    day_w = days_width / day_count
+    slot_h = days_height / slot_count
 
-    # Time labels.
-    label_y = grid_top - 28
-    for idx, (start, _) in enumerate(time_slots[:slot_count]):
-        if idx % 2 != 0:
-            continue
-        short = start.replace(" AM", "A").replace(" PM", "P")
-        x = int(timeline_left + idx * slot_width + 4)
-        draw.text((x, label_y), short, fill=(34, 57, 94), font=small_font)
+    draw.rounded_rectangle((grid_left, grid_top, grid_right, grid_bottom), radius=20, fill=(255, 255, 255))
+    draw.rectangle((grid_left + 1, grid_top + 1, grid_right - 1, grid_top + top_day_row_h), fill=(245, 249, 255))
+    draw.rectangle((grid_left + 1, grid_top + 1, grid_left + left_time_col_w, grid_bottom - 1), fill=(247, 250, 255))
 
-    # Grid lines + day labels.
-    for row_idx, day in enumerate(DAY_ORDER):
-        y0 = int(grid_top + row_idx * row_height)
-        y1 = int(grid_top + (row_idx + 1) * row_height)
-        bg = (250, 252, 255) if row_idx % 2 == 0 else (246, 249, 255)
-        draw.rectangle((grid_left + 2, y0 + 1, grid_right - 2, y1 - 1), fill=bg)
-        draw.text((grid_left + 22, y0 + int(row_height * 0.35)), day, fill=(25, 42, 76), font=_load_font(22, bold=True))
-        draw.line((grid_left, y0, grid_right, y0), fill=(220, 228, 242), width=1)
+    # X-axis = day
+    for day_idx, day in enumerate(DAY_ORDER):
+        x0 = int(days_left + day_idx * day_w)
+        x1 = int(days_left + (day_idx + 1) * day_w)
+        cx = x0 + (x1 - x0) // 2
+        label_w = int(draw.textlength(day, font=day_font))
+        draw.text((cx - (label_w // 2), grid_top + 28), day, fill=(25, 44, 80), font=day_font)
+        draw.line((x0, grid_top, x0, grid_bottom), fill=(223, 232, 246), width=1)
+    draw.line((grid_right, grid_top, grid_right, grid_bottom), fill=(223, 232, 246), width=1)
 
-    draw.line((grid_left, grid_bottom, grid_right, grid_bottom), fill=(220, 228, 242), width=1)
-    draw.line((timeline_left, grid_top, timeline_left, grid_bottom), fill=(205, 217, 237), width=2)
-    for slot_idx in range(slot_count + 1):
-        x = int(timeline_left + slot_idx * slot_width)
-        line_color = (228, 234, 245) if slot_idx % 2 == 0 else (238, 242, 250)
-        draw.line((x, grid_top, x, grid_bottom), fill=line_color, width=1)
+    # Y-axis = period/time
+    for slot_idx in range(slot_count):
+        y0 = int(days_top + slot_idx * slot_h)
+        y1 = int(days_top + (slot_idx + 1) * slot_h)
+        is_even = (slot_idx % 2 == 0)
+        row_fill = (251, 253, 255) if is_even else (248, 251, 255)
+        draw.rectangle((days_left + 1, y0 + 1, grid_right - 1, y1 - 1), fill=row_fill)
+        draw.line((grid_left, y0, grid_right, y0), fill=(228, 236, 248), width=1)
 
-    # Class blocks.
+        if slot_idx < len(time_slots):
+            start, end = time_slots[slot_idx]
+            label = f"{start}-{end}"
+        else:
+            label = f"P{slot_idx + 1}"
+        label = _fit_single_line(draw, label, time_font, left_time_col_w - 20)
+        draw.text((grid_left + 12, y0 + int((y1 - y0) * 0.34)), label, fill=(36, 56, 92), font=time_font)
+
+    draw.line((grid_left, days_top, grid_right, days_top), fill=(210, 221, 239), width=2)
+    draw.line((grid_left + left_time_col_w, grid_top, grid_left + left_time_col_w, grid_bottom), fill=(205, 217, 237), width=2)
+    draw.line((grid_left, grid_bottom, grid_right, grid_bottom), fill=(228, 236, 248), width=1)
+
     for entry in entries:
         day = str(entry.get("day", "")).upper()
         if day not in DAY_ORDER:
             continue
         day_idx = DAY_ORDER.index(day)
+
         start_slot = max(0, int(entry.get("start_slot", 0)))
         duration = max(1, int(entry.get("duration_slots", 1)))
         start_slot = min(start_slot, slot_count - 1)
         duration = min(duration, slot_count - start_slot)
 
-        x0 = int(timeline_left + start_slot * slot_width + 4)
-        x1 = int(timeline_left + (start_slot + duration) * slot_width - 4)
-        y0 = int(grid_top + day_idx * row_height + 10)
-        y1 = int(grid_top + (day_idx + 1) * row_height - 10)
-        if x1 <= x0 + 24:
-            x1 = x0 + 24
+        x0 = int(days_left + day_idx * day_w + 6)
+        x1 = int(days_left + (day_idx + 1) * day_w - 6)
+        y0 = int(days_top + start_slot * slot_h + 5)
+        y1 = int(days_top + (start_slot + duration) * slot_h - 5)
+        if y1 <= y0 + 28:
+            y1 = y0 + 28
 
-        subject_code = str(entry.get("subject_code") or entry.get("subject") or "SUBJECT")
-        block_color = _subject_color(subject_code)
+        code = _subject_code(entry)
+        block_color = _subject_color(code)
         draw.rounded_rectangle((x0, y0, x1, y1), radius=14, fill=block_color)
 
-        content_width = max(40, x1 - x0 - 14)
-        subject = str(entry.get("subject") or subject_code)
+        content_w = max(20, x1 - x0 - 12)
+        code_label = _fit_single_line(draw, code, subject_font, content_w)
+        draw.text((x0 + 6, y0 + 6), code_label, fill=(255, 255, 255), font=subject_font)
+
+        group = str(entry.get("group") or "").strip()
+        venue = str(entry.get("venue") or "").strip()
         time_range = _slot_range(entry, time_slots)
-        venue = str(entry.get("venue") or "")
-        group = str(entry.get("group") or "")
-        meta = " | ".join(part for part in [time_range, group, venue] if part)
-
-        draw.text(
-            (x0 + 7, y0 + 8),
-            _fit_single_line(draw, subject, block_title_font, content_width),
-            fill=(255, 255, 255),
-            font=block_title_font,
-        )
-        draw.text(
-            (x0 + 7, y0 + 36),
-            _fit_single_line(draw, meta, block_meta_font, content_width),
-            fill=(242, 246, 255),
-            font=block_meta_font,
-        )
-
-    footer_font = _load_font(18)
-    draw.text(
-        (grid_left + 6, height - 40),
-        "Tip: Use this as your lock screen wallpaper.",
-        fill=(70, 89, 121),
-        font=footer_font,
-    )
+        if y1 - y0 >= 72:
+            meta_a = _fit_single_line(draw, time_range, meta_font, content_w)
+            draw.text((x0 + 6, y0 + 36), meta_a, fill=(241, 247, 255), font=meta_font)
+        if y1 - y0 >= 94:
+            meta_b = " | ".join(part for part in [group, venue] if part)
+            if meta_b:
+                meta_b = _fit_single_line(draw, meta_b, meta_font, content_w)
+                draw.text((x0 + 6, y0 + 56), meta_b, fill=(241, 247, 255), font=meta_font)
 
     buffer = BytesIO()
     img.save(buffer, format="PNG", optimize=True)
@@ -214,7 +207,7 @@ def build_timetable_text_fallback(
         if day in grouped:
             grouped[day].append(entry)
 
-    parts: List[str] = ["<b>Weekly Timetable (Text Backup)</b>"]
+    parts: List[str] = ["<b>Class Schedule (Text Backup)</b>"]
     for day in DAY_ORDER:
         day_entries = sorted(grouped[day], key=lambda item: int(item.get("start_slot", 0)))
         if not day_entries:
@@ -222,7 +215,7 @@ def build_timetable_text_fallback(
         parts.append(f"\n<b>{day}</b>")
         for item in day_entries:
             time_range = escape(_slot_range(item, time_slots))
-            subject = escape(str(item.get("subject") or item.get("subject_code") or "Subject"))
+            subject = escape(_subject_code(item))
             group = str(item.get("group") or "").strip()
             venue = str(item.get("venue") or "").strip()
 

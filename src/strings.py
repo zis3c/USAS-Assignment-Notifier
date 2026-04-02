@@ -13,7 +13,7 @@ HELP = (
     "This service monitors the *USAS LMS* for *new assignments* and notifies you *instantly*.\n\n"
     "*Register* - Link LMS account\n"
     "*Check Now* - Scan tasks now\n"
-    "*Timetable* - Generate weekly wallpaper\n"
+    "*Timetable* - Show class schedule wallpaper\n"
     "*Status* - View account info\n"
     "*Logout* - Remove your data\n\n"
     "Made by *zis3c* 🔥"
@@ -274,7 +274,7 @@ SOMETHING_WENT_WRONG = "*⚠️ Something went wrong.* Please try again later."
 
 TIMETABLE_LOADING = (
     "*Preparing your timetable...*\n\n"
-    "Fetching latest schedule from LMS and rendering wallpaper."
+    "Fetching latest class schedule from LMS."
 )
 
 TIMETABLE_EMPTY = (
@@ -288,7 +288,7 @@ TIMETABLE_TEMP_ERROR = (
 )
 
 TIMETABLE_IMAGE_CAPTION = (
-    "<b>USAS Weekly Timetable</b>\n"
+    "<b>USAS Class Schedule</b>\n"
     "Name: <b>{name}</b>\n"
     "Generated: <code>{generated}</code>"
 )
