@@ -7,6 +7,7 @@ from datetime import datetime
 from hashlib import md5
 from html import escape
 from io import BytesIO
+from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
@@ -18,7 +19,11 @@ BASE_START_HOUR = 8
 MAX_END_HOUR = 22  # 10 PM
 MAX_VISIBLE_SLOTS = MAX_END_HOUR - BASE_START_HOUR  # 14 rows: 08-09 ... 21-22
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ASSET_FONT_DIR = PROJECT_ROOT / "assets" / "fonts"
+
 FONT_CANDIDATES_REGULAR = [
+    str(ASSET_FONT_DIR / "Poppins-Regular.ttf"),
     "Inter-Regular.ttf",
     "Inter.ttf",
     "/usr/share/fonts/truetype/inter/Inter-Regular.ttf",
@@ -29,6 +34,7 @@ FONT_CANDIDATES_REGULAR = [
     "C:/Windows/Fonts/arial.ttf",
 ]
 FONT_CANDIDATES_BOLD = [
+    str(ASSET_FONT_DIR / "Poppins-Bold.ttf"),
     "Inter-Bold.ttf",
     "Inter-SemiBold.ttf",
     "/usr/share/fonts/truetype/inter/Inter-Bold.ttf",
