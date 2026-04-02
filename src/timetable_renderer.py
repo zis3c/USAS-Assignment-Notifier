@@ -170,15 +170,27 @@ def render_timetable_image(
     day_w = days_width / day_count
     slot_h = days_height / visible_slots
 
+    corner_radius = 22
+    card_fill = (20, 24, 34)
+    band_fill = (24, 29, 40)
+
     # Subtle card shadow for separation on dark background.
     draw.rounded_rectangle(
         (grid_left - 8, grid_top - 8, grid_right + 8, grid_bottom + 8),
         radius=28,
         fill=(8, 11, 18),
     )
-    draw.rounded_rectangle((grid_left, grid_top, grid_right, grid_bottom), radius=22, fill=(20, 24, 34))
-    draw.rectangle((grid_left, grid_top, grid_right, days_top), fill=(24, 29, 40))
-    draw.rectangle((grid_left, grid_top, days_left, grid_bottom), fill=(24, 29, 40))
+    draw.rounded_rectangle((grid_left, grid_top, grid_right, grid_bottom), radius=corner_radius, fill=card_fill)
+
+    # Top band with preserved rounded top corners.
+    draw.rounded_rectangle((grid_left, grid_top, grid_right, days_top), radius=corner_radius, fill=band_fill)
+    if days_top > grid_top + corner_radius:
+        draw.rectangle((grid_left, grid_top + corner_radius, grid_right, days_top), fill=band_fill)
+
+    # Left band with preserved rounded left corners.
+    draw.rounded_rectangle((grid_left, grid_top, days_left, grid_bottom), radius=corner_radius, fill=band_fill)
+    if days_left > grid_left + corner_radius:
+        draw.rectangle((grid_left + corner_radius, grid_top, days_left, grid_bottom), fill=band_fill)
 
     # X-axis = day (compact letters)
     for day_idx, short_label in enumerate(DAY_SHORT_LABELS):
