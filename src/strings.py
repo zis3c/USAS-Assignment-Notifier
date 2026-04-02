@@ -13,6 +13,7 @@ HELP = (
     "This service monitors the *USAS LMS* for *new assignments* and notifies you *instantly*.\n\n"
     "*Register* - Link LMS account\n"
     "*Check Now* - Scan tasks now\n"
+    "*Timetable* - Generate weekly wallpaper\n"
     "*Status* - View account info\n"
     "*Logout* - Remove your data\n\n"
     "Made by *zis3c* 🔥"
@@ -268,3 +269,26 @@ RATE_LIMIT_ADMIN = "⏳ *Cooling down...*\n\nThe global poll was recently trigge
 # ── Generic ───────────────────────────────────────────────────────────────────
 
 SOMETHING_WENT_WRONG = "*⚠️ Something went wrong.* Please try again later."
+
+# -- Timetable ---------------------------------------------------------------
+
+TIMETABLE_LOADING = (
+    "*Preparing your timetable...*\n\n"
+    "Fetching latest schedule from LMS and rendering wallpaper."
+)
+
+TIMETABLE_EMPTY = (
+    "*No timetable found.*\n\n"
+    "I could not find the class timetable block on your LMS dashboard right now."
+)
+
+TIMETABLE_TEMP_ERROR = (
+    "*Unable to generate timetable right now.*\n\n"
+    "Please try again in a moment."
+)
+
+TIMETABLE_IMAGE_CAPTION = (
+    "<b>USAS Weekly Timetable</b>\n"
+    "Name: <b>{name}</b>\n"
+    "Generated: <code>{generated}</code>"
+)

@@ -1,4 +1,4 @@
-from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 
 def main_menu() -> ReplyKeyboardMarkup:
@@ -6,11 +6,11 @@ def main_menu() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
             ["Check Now", "Status"],
-            ["Register", "Help"],
-            ["Logout"],
+            ["Timetable", "Register"],
+            ["Help", "Logout"],
         ],
         resize_keyboard=True,
-        input_field_placeholder="Choose an action…",
+        input_field_placeholder="Choose an action...",
     )
 
 
@@ -40,7 +40,7 @@ def admin_menu() -> ReplyKeyboardMarkup:
             ["Main Menu"],
         ],
         resize_keyboard=True,
-        input_field_placeholder="Admin Tools…",
+        input_field_placeholder="Admin Tools...",
     )
 
 
@@ -50,12 +50,16 @@ def confirmation_keyboard() -> ReplyKeyboardMarkup:
         [["Confirm Sending", "Cancel"]],
         resize_keyboard=True,
     )
+
+
 def cancel_menu() -> ReplyKeyboardMarkup:
     """Simple 'Cancel' menu for conversation flows."""
     return ReplyKeyboardMarkup(
         [["Cancel"]],
         resize_keyboard=True,
     )
+
+
 def confirm_menu() -> ReplyKeyboardMarkup:
     """Confirmation menu for logout."""
     return ReplyKeyboardMarkup(

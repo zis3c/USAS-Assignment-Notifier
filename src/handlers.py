@@ -4,6 +4,8 @@ import logging
 import os
 import shutil
 import time
+from io import BytesIO
+from html import escape
 from datetime import datetime, timezone
 import psutil
 
@@ -11,6 +13,7 @@ from cryptography.fernet import InvalidToken
 from sqlalchemy import select
 from telegram import Update
 from telegram.error import TelegramError
+from telegram.constants import ChatAction
 from telegram.ext import (
     CommandHandler,
     ContextTypes,
@@ -23,10 +26,11 @@ from src import config, keyboards, strings
 from src.crypto import decrypt_text, encrypt_text
 from src.database import AsyncSessionLocal
 from src.jobs import poll_user_id
-from src.lms_client import LMSClient, extract_user_name, extract_sesskey
+from src.lms_client import LMSAuthenticationError, LMSClient, extract_user_name, extract_sesskey
 from src.models import User, SystemSettings
 from src.sheets_client import sheets_client
 from src.logging_utils import log_activity
+from src.timetable_renderer import build_timetable_text_fallback, render_timetable_image
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +219,138 @@ async def check_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         update.effective_user.id,
         "CHECK_MEMBERSHIP",
         f"Matric: {user_id} | New: {result.new_count} | Pending: {result.pending_count} | Reminder: {result.reminder_count}"
+    )
+
+
+async def timetable(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Generate and send a portrait timetable image fetched from LMS dashboard HTML."""
+    chat_id = str(update.message.chat_id)
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(User).where(User.chat_id == chat_id, User.active.is_(True))
+        )
+        user = result.scalars().first()
+
+    if not user:
+        await update.message.reply_text(
+            strings.NOT_REGISTERED,
+            parse_mode="Markdown",
+            reply_markup=keyboards.main_menu(),
+        )
+        return
+
+    waiting = await update.message.reply_text(strings.TIMETABLE_LOADING, parse_mode="Markdown")
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_PHOTO)
+
+    try:
+        password = decrypt_text(user.password_blob)
+    except InvalidToken:
+        try:
+            await waiting.delete()
+        except TelegramError:
+            pass
+        await update.message.reply_text(
+            strings.TIMETABLE_TEMP_ERROR,
+            parse_mode="Markdown",
+            reply_markup=keyboards.main_menu(),
+        )
+        return
+
+    session_cookie = None
+    if user.session_cookie_blob:
+        try:
+            session_cookie = decrypt_text(user.session_cookie_blob)
+        except InvalidToken:
+            session_cookie = None
+
+    client = LMSClient(user.student_id, password, session_cookie)
+    try:
+        timetable_result = await client.fetch_timetable()
+    except LMSAuthenticationError:
+        try:
+            await waiting.delete()
+        except TelegramError:
+            pass
+        await update.message.reply_text(
+            strings.LOGIN_FAILED,
+            parse_mode="Markdown",
+            reply_markup=keyboards.main_menu(),
+        )
+        return
+    except Exception as exc:
+        logger.exception("Timetable fetch failed for user %s: %s", user.id, exc)
+        try:
+            await waiting.delete()
+        except TelegramError:
+            pass
+        await update.message.reply_text(
+            strings.TIMETABLE_TEMP_ERROR,
+            parse_mode="Markdown",
+            reply_markup=keyboards.main_menu(),
+        )
+        return
+
+    parsed_name = extract_user_name(timetable_result.dashboard_html or "")
+    async with AsyncSessionLocal() as session:
+        db_user = await session.get(User, user.id)
+        if db_user:
+            if timetable_result.session_cookie:
+                db_user.session_cookie_blob = encrypt_text(timetable_result.session_cookie)
+            if parsed_name:
+                db_user.display_name = parsed_name
+            await session.commit()
+
+    try:
+        await waiting.delete()
+    except TelegramError:
+        pass
+
+    if not timetable_result.entries:
+        await update.message.reply_text(
+            strings.TIMETABLE_EMPTY,
+            parse_mode="Markdown",
+            reply_markup=keyboards.main_menu(),
+        )
+        return
+
+    display_name = parsed_name or user.display_name or user.student_id
+    generated_local = datetime.now(config.LOCAL_TZ)
+    photo_bytes = render_timetable_image(
+        entries=timetable_result.entries,
+        time_slots=timetable_result.time_slots,
+        student_name=display_name,
+        generated_at=generated_local,
+    )
+    photo_file = BytesIO(photo_bytes)
+    photo_file.name = "usas_timetable.png"
+
+    caption = strings.TIMETABLE_IMAGE_CAPTION.format(
+        name=escape(display_name),
+        generated=generated_local.strftime("%d %b %Y, %I:%M %p"),
+    )
+    await update.message.reply_photo(
+        photo=photo_file,
+        caption=caption,
+        parse_mode="HTML",
+    )
+
+    text_fallback = build_timetable_text_fallback(
+        timetable_result.entries,
+        timetable_result.time_slots,
+    )
+    await update.message.reply_text(
+        text_fallback,
+        parse_mode="HTML",
+        disable_web_page_preview=True,
+        reply_markup=keyboards.main_menu(),
+    )
+
+    log_activity(
+        update.effective_user.first_name or "Unknown",
+        update.effective_user.id,
+        "TIMETABLE",
+        f"Entries: {len(timetable_result.entries)}",
     )
 
 
@@ -537,6 +673,8 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await check_now(update, context)
     elif text == "Status":
         await status(update, context)
+    elif text == "Timetable":
+        await timetable(update, context)
     elif text == "Help":
         await help_cmd(update, context)
     elif text == "Register":

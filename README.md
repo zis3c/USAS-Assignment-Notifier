@@ -6,6 +6,7 @@ A professional Telegram bot designed for USAS students to stay on top of their L
 
 - **Real-time Notifications**: Get alerted instantly when new assignments are posted on the USAS LMS.
 - **Deadline Tracking**: Automated reminders to help you manage your study schedule.
+- **Timetable Factory**: Generate a portrait weekly timetable wallpaper directly from LMS data.
 - **Secure Integration**: Safely link your LMS account with encrypted credential storage.
 - **Easy Access**: Quick links to jump directly to your assignment tasks.
 
