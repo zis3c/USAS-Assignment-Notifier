@@ -96,7 +96,7 @@ def _slot_range(entry: Dict[str, object], visible_slots: int) -> str:
 
 
 def _visible_slot_count(entries: List[Dict[str, object]]) -> int:
-    """Auto-crop Y-axis based on latest class end, plus one extra period."""
+    """Auto-crop Y-axis based on latest class end (no extra trailing period)."""
     latest_end = 0
     for entry in entries:
         day = str(entry.get("day", "")).upper()
@@ -112,8 +112,7 @@ def _visible_slot_count(entries: List[Dict[str, object]]) -> int:
     if latest_end <= 0:
         return MAX_VISIBLE_SLOTS
 
-    # Add one extra visible period after the last class to keep spacing natural.
-    return min(MAX_VISIBLE_SLOTS, latest_end + 1)
+    return min(MAX_VISIBLE_SLOTS, max(1, latest_end))
 
 
 def _pick_code_font(draw: ImageDraw.ImageDraw, text: str, max_w: int, max_h: int) -> ImageFont.ImageFont:
