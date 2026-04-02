@@ -122,7 +122,7 @@ def _visible_slot_count(entries: List[Dict[str, object]]) -> int:
 
 
 def _pick_code_font(draw: ImageDraw.ImageDraw, text: str, max_w: int, max_h: int) -> ImageFont.ImageFont:
-    for size in (42, 40, 38, 36, 34, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10):
+    for size in (108, 100, 92, 84, 76, 68, 60, 52, 46, 40, 36, 32, 28, 24, 22, 20, 18, 16, 14, 12, 10):
         font = _load_font(size, bold=True)
         text_w = draw.textlength(text, font=font)
         bbox = draw.textbbox((0, 0), "Ag", font=font)
@@ -143,13 +143,15 @@ def render_timetable_image(
     _ = student_name
     _ = generated_at
 
-    width, height = 1080, 1920
+    # Ultra-high resolution canvas for modern phone lock screens (19.5:9).
+    # 2160x4680 stays very sharp after Telegram download + wallpaper zoom/crop.
+    width, height = 2160, 4680
     img = Image.new("RGB", (width, height), (12, 16, 24))
     draw = ImageDraw.Draw(img)
 
     # Centered "widget" layout to fit lock-screen wallpapers without manual zoom-out.
-    card_width = int(width * 0.86)
-    card_height = int(height * 0.66)
+    card_width = int(width * 0.84)
+    card_height = int(height * 0.60)
     grid_left = (width - card_width) // 2
     grid_top = (height - card_height) // 2
     grid_right = grid_left + card_width
@@ -157,8 +159,8 @@ def render_timetable_image(
     left_time_col_w = int(card_width * 0.14)
     top_day_row_h = int(card_height * 0.09)
 
-    day_font = _load_font(24, bold=True)
-    time_font = _load_font(17, bold=True)
+    day_font = _load_font(max(34, int(card_height * 0.030)), bold=True)
+    time_font = _load_font(max(24, int(card_height * 0.020)), bold=True)
 
     visible_slots = _visible_slot_count(entries)
     day_count = len(DAY_ORDER)
