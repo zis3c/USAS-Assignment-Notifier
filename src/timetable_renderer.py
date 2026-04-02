@@ -147,15 +147,18 @@ def render_timetable_image(
     img = Image.new("RGB", (width, height), (12, 16, 24))
     draw = ImageDraw.Draw(img)
 
-    day_font = _load_font(26, bold=True)
-    time_font = _load_font(19, bold=True)
+    # Centered "widget" layout to fit lock-screen wallpapers without manual zoom-out.
+    card_width = int(width * 0.86)
+    card_height = int(height * 0.66)
+    grid_left = (width - card_width) // 2
+    grid_top = (height - card_height) // 2
+    grid_right = grid_left + card_width
+    grid_bottom = grid_top + card_height
+    left_time_col_w = int(card_width * 0.14)
+    top_day_row_h = int(card_height * 0.09)
 
-    grid_left = 24
-    grid_top = 30
-    grid_right = width - 24
-    grid_bottom = height - 30
-    left_time_col_w = 128
-    top_day_row_h = 72
+    day_font = _load_font(24, bold=True)
+    time_font = _load_font(17, bold=True)
 
     visible_slots = _visible_slot_count(entries)
     day_count = len(DAY_ORDER)
@@ -167,6 +170,12 @@ def render_timetable_image(
     day_w = days_width / day_count
     slot_h = days_height / visible_slots
 
+    # Subtle card shadow for separation on dark background.
+    draw.rounded_rectangle(
+        (grid_left - 8, grid_top - 8, grid_right + 8, grid_bottom + 8),
+        radius=28,
+        fill=(8, 11, 18),
+    )
     draw.rounded_rectangle((grid_left, grid_top, grid_right, grid_bottom), radius=22, fill=(20, 24, 34))
     draw.rectangle((grid_left, grid_top, grid_right, days_top), fill=(24, 29, 40))
     draw.rectangle((grid_left, grid_top, days_left, grid_bottom), fill=(24, 29, 40))
@@ -177,7 +186,7 @@ def render_timetable_image(
         x1 = int(days_left + (day_idx + 1) * day_w)
         cx = x0 + ((x1 - x0) // 2)
         label_w = int(draw.textlength(short_label, font=day_font))
-        draw.text((cx - (label_w // 2), grid_top + 20), short_label, fill=(213, 223, 239), font=day_font)
+        draw.text((cx - (label_w // 2), grid_top + int(top_day_row_h * 0.30)), short_label, fill=(213, 223, 239), font=day_font)
         draw.line((x0, grid_top, x0, grid_bottom), fill=(47, 56, 73), width=1)
     draw.line((grid_right, grid_top, grid_right, grid_bottom), fill=(47, 56, 73), width=1)
 
@@ -190,7 +199,13 @@ def render_timetable_image(
         draw.line((grid_left, y0, grid_right, y0), fill=(45, 54, 71), width=1)
 
         label = _hour_range_label(slot_idx)
-        draw.text((grid_left + 16, y0 + int((y1 - y0) * 0.32)), label, fill=(166, 182, 206), font=time_font)
+        label_bbox = draw.textbbox((0, 0), label, font=time_font)
+        label_w = label_bbox[2] - label_bbox[0]
+        label_h = label_bbox[3] - label_bbox[1]
+        time_col_center_x = grid_left + ((days_left - grid_left) // 2)
+        label_x = int(time_col_center_x - (label_w // 2))
+        label_y = int(y0 + ((y1 - y0 - label_h) // 2))
+        draw.text((label_x, label_y), label, fill=(166, 182, 206), font=time_font)
 
     draw.line((grid_left, days_top, grid_right, days_top), fill=(65, 76, 97), width=2)
     draw.line((days_left, grid_top, days_left, grid_bottom), fill=(65, 76, 97), width=2)
