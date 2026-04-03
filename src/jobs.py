@@ -309,7 +309,10 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
                 stage_days = _countdown_stage_days(due_at, now_utc)
                 if stage_days in COUNTDOWN_STAGE_FIELD:
                     stage_field = COUNTDOWN_STAGE_FIELD[stage_days]
-                    if getattr(current, stage_field) is None:
+                    # For auto polling, send once per stage (DB-deduped).
+                    # For manual Check Now, allow re-showing countdown reminders
+                    # so users always get the full pending assignment card.
+                    if force_pending_reminders or getattr(current, stage_field) is None:
                         countdown_events_by_stage[stage_days].append(event)
                     # In countdown windows, motivational reminders replace normal pending reminders.
                     continue

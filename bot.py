@@ -75,9 +75,11 @@ logger = logging.getLogger("lms_notifier")
 
 
 # ── Startup hook ──────────────────────────────────────────────────────────────
-async def post_init(app: Application) -> None:
-    """Called once after the Application is initialised."""
-    await init_db()
+async def configure_runtime(app: Application) -> None:
+    """Configure command list and recurring jobs (safe to call multiple times)."""
+    if app.bot_data.get("runtime_configured"):
+        return
+    app.bot_data["runtime_configured"] = True
 
     # Register bot command list (shown in Telegram menu)
     try:
@@ -95,15 +97,20 @@ async def post_init(app: Application) -> None:
     except Exception as e:
         logger.warning("Could not set bot commands: %s", e)
 
-    # Schedule periodic polling
-    app.job_queue.run_repeating(
-        poll_all_users,
-        interval=config.POLL_INTERVAL_SECONDS,
-        first=10,
-        name="poll_all_users",
-    )
+    if app.job_queue is None:
+        logger.error("JobQueue unavailable: auto polling/reminders/daily logs are disabled.")
+        return
 
-    # Schedule daily activity log delivery (default 08:00 Asia/Kuala_Lumpur)
+    # Schedule periodic polling once.
+    if not app.job_queue.get_jobs_by_name("poll_all_users"):
+        app.job_queue.run_repeating(
+            poll_all_users,
+            interval=config.POLL_INTERVAL_SECONDS,
+            first=10,
+            name="poll_all_users",
+        )
+
+    # Schedule daily activity log delivery once (default 08:00 Asia/Kuala_Lumpur).
     from datetime import time
     daily_log_time = time(
         hour=config.DAILY_LOG_HOUR,
@@ -111,19 +118,26 @@ async def post_init(app: Application) -> None:
         second=0,
         tzinfo=config.LOCAL_TZ,
     )
-    app.job_queue.run_daily(
-        send_daily_logs,
-        time=daily_log_time,
-        name="send_daily_logs",
-    )
+    if not app.job_queue.get_jobs_by_name("send_daily_logs"):
+        app.job_queue.run_daily(
+            send_daily_logs,
+            time=daily_log_time,
+            name="send_daily_logs",
+        )
 
     logger.info(
-        "✅  Scheduler started — polling every %ss, daily logs at %02d:%02d (%s)",
+        "Scheduler started - polling every %ss, daily logs at %02d:%02d (%s)",
         config.POLL_INTERVAL_SECONDS,
         config.DAILY_LOG_HOUR,
         config.DAILY_LOG_MINUTE,
         getattr(config.LOCAL_TZ, "key", str(config.LOCAL_TZ)),
     )
+
+
+async def post_init(app: Application) -> None:
+    """Called once after the Application is initialised."""
+    await init_db()
+    await configure_runtime(app)
 
 async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Global middleware for anti-spam, maintenance, and bans + Activity Logging."""
@@ -314,6 +328,8 @@ async def run_bot() -> None:
     # 4. Run Bot Polling
     async with app:
         await app.initialize()
+        # In manual lifecycle mode, post_init callback is not invoked automatically.
+        await configure_runtime(app)
         await app.start()
         logger.info("📡 Bot is now polling...")
         await app.updater.start_polling(drop_pending_updates=True)
