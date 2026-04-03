@@ -335,13 +335,12 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
                     # In countdown windows, motivational reminders replace normal pending reminders.
                     continue
 
-                should_send = force_pending_reminders or _should_send_reminder(
-                    current.last_notified_at, now_utc
-                )
-                if not should_send:
-                    continue
-
-                reminder_events.append(event)
+                # Avoid auto-spam: generic pending reminders are manual-only.
+                # Auto polling should notify for:
+                # 1) new assignments, and
+                # 2) countdown stages (3/2/1 days) only.
+                if force_pending_reminders:
+                    reminder_events.append(event)
 
         user.last_checked_at = get_utc_now()
         await session.commit()
