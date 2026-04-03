@@ -25,6 +25,9 @@ COUNTDOWN_STAGE_FIELD = {
     1: "reminder_1d_sent_at",
 }
 
+# Keep last used quote per (user_id, countdown_stage_days) to avoid immediate repeats.
+_LAST_COUNTDOWN_QUOTE: dict[tuple[int, int], str] = {}
+
 
 @dataclass
 class PollResult:
@@ -207,13 +210,28 @@ def _build_standard_batches(events: list[dict], is_reminder: bool) -> list[tuple
     return _build_assignment_batches(events, header)
 
 
-def _build_countdown_batches(events: list[dict], days_left: int) -> list[tuple[str, list[str]]]:
+def _pick_countdown_quote(user_id: int, days_left: int, quotes: list[str]) -> str:
+    if not quotes:
+        return ""
+    key = (user_id, days_left)
+    last_quote = _LAST_COUNTDOWN_QUOTE.get(key)
+    if len(quotes) > 1 and last_quote in quotes:
+        pool = [quote for quote in quotes if quote != last_quote]
+    else:
+        pool = quotes
+    chosen = random.choice(pool)
+    _LAST_COUNTDOWN_QUOTE[key] = chosen
+    return chosen
+
+
+def _build_countdown_batches(events: list[dict], days_left: int, user_id: int) -> list[tuple[str, list[str]]]:
     quotes = _countdown_quotes(days_left)
     if not quotes:
         return []
+    quote = _pick_countdown_quote(user_id, days_left, quotes)
     header = strings.COUNTDOWN_REMINDER_HEADER.format(
         days=days_left,
-        quote=escape(random.choice(quotes)),
+        quote=escape(quote),
     )
     return _build_assignment_batches(events, header)
 
@@ -345,7 +363,7 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
         if not stage_events:
             continue
 
-        for batch, event_ids in _build_countdown_batches(stage_events, stage):
+        for batch, event_ids in _build_countdown_batches(stage_events, stage, user_id):
             await bot.send_message(
                 chat_id=chat_id,
                 text=batch,

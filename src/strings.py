@@ -154,29 +154,29 @@ COUNTDOWN_REMINDER_HEADER = (
 )
 
 COUNTDOWN_QUOTES_3D = [
-    "Weh bangun. Sekarang. Bukan nanti. SEKARANG.",
-    "Kau dah tak ada masa nak fikir. Terus buat.",
-    "Perfect buang jauh. SIAP itu target.",
-    "Kalau kau tak start dalam 5 minit ni, kau sendiri pilih untuk fail.",
-    "Stop scroll. Letak phone. Buka laptop. Buat kerja.",
-    "Jangan tunggu mood. Mood takkan datang. Kau kena paksa.",
-    "Buat yang paling penting dulu. Yang lain kalau sempat baru tambah.",
-    "Tak payah cantik. Janji cukup syarat dan boleh submit.",
-    "Kau ada maybe 10 sampai 15 jam je betul-betul produktif. Guna.",
-    "Kalau kau tangguh lagi sekarang, memang habis.",
+    "Okay masih sempat. Tapi kalau kau tak start hari ni, esok memang sakit.",
+    "Start kecil pun takpe. Janji start dulu sekarang.",
+    "Jangan tunggu free time. Kau memang takkan rasa free.",
+    "Buka je dulu assignment tu. Faham sikit pun dah cukup.",
+    "Buat sikit hari ni, kau akan selamat nanti.",
+    "Tak payah fikir siap. Fikir mula dulu.",
+    "Kalau kau start sekarang, kau masih ada control.",
+    "3 hari nampak lama. Tapi sebenarnya cepat gila habis.",
+    "Satu jam sekarang lebih bernilai dari 5 jam last minute.",
+    "Jangan aim perfect. Aim progress dulu.",
 ]
 
 COUNTDOWN_QUOTES_2D = [
-    "Dengar sini. Kau dah hampir habis masa. Start sekarang atau memang bye.",
-    "Jangan duduk lagi. Buka laptop. Buat kerja. Sekarang.",
-    "Tak ada 'kejap lagi'. Itu ayat orang gagal.",
-    "Kau nak lulus atau nak bagi alasan? Pilih sekarang.",
-    "Perfect tu untuk orang yang start awal. Kau tak layak fikir tu dah.",
-    "Set timer 30 minit. Buat tanpa berhenti. Ulang sampai siap.",
-    "Kalau kau buka phone lagi, memang kau sabotage diri sendiri.",
-    "Tak payah fikir susah ke senang. Kau buat je sampai siap.",
-    "Ini bukan pasal rajin. Ini pasal kau nak selamat atau tak.",
-    "Kalau kau tak siap, itu bukan sebab susah. Itu sebab kau tak buat.",
+    "Dah tak banyak masa. Apa pun jadi, kau kena start sekarang.",
+    "Kalau kau masih tak mula, itu memang bahaya dah.",
+    "Tak ada lagi try slow-slow. Kau kena push sekarang.",
+    "Kau bukan tak boleh. Kau je tak buat lagi.",
+    "Buka laptop. Buat walaupun malas. Itu je jalan.",
+    "Kalau kau tangguh lagi, esok kau akan menyesal gila.",
+    "Tak payah tunggu faham semua. Buat dulu.",
+    "2 hari ni menentukan kau lulus atau tak.",
+    "Stop fikir. Start buat.",
+    "Ini last chance untuk kau buat dengan tenang sikit.",
 ]
 
 COUNTDOWN_QUOTES_1D = [
