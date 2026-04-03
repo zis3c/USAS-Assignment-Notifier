@@ -132,6 +132,26 @@ def _pick_code_font(draw: ImageDraw.ImageDraw, text: str, max_w: int, max_h: int
     return _load_font(10, bold=True)
 
 
+def _build_rounded_mask(
+    size: tuple[int, int],
+    bbox: tuple[int, int, int, int],
+    radius: int,
+    scale: int = 4,
+) -> Image.Image:
+    """Build an anti-aliased rounded rectangle mask for smooth outer edges."""
+    width, height = size
+    left, top, right, bottom = bbox
+    large_mask = Image.new("L", (width * scale, height * scale), 0)
+    large_draw = ImageDraw.Draw(large_mask)
+    large_draw.rounded_rectangle(
+        (left * scale, top * scale, right * scale, bottom * scale),
+        radius=max(1, radius * scale),
+        fill=255,
+    )
+    resample = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
+    return large_mask.resize((width, height), resample)
+
+
 def render_timetable_image(
     entries: List[Dict[str, object]],
     time_slots: List[Tuple[str, str]],
@@ -147,13 +167,20 @@ def render_timetable_image(
     # 2160x4680 stays very sharp after Telegram download + wallpaper zoom/crop.
     width, height = 2160, 4680
     img = Image.new("RGB", (width, height), (12, 16, 24))
-    draw = ImageDraw.Draw(img)
+    bg_draw = ImageDraw.Draw(img)
+    card_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(card_layer)
 
     # Centered "widget" layout to fit lock-screen wallpapers without manual zoom-out.
     card_width = int(width * 0.84)
     card_height = int(height * 0.60)
     grid_left = (width - card_width) // 2
-    grid_top = (height - card_height) // 2
+    centered_top = (height - card_height) // 2
+    # Push card lower to avoid overlap with lock-screen clock/widgets.
+    top_widget_clearance = int(height * 0.06)
+    bottom_safe_margin = int(height * 0.07)
+    max_top = height - card_height - bottom_safe_margin
+    grid_top = min(centered_top + top_widget_clearance, max_top)
     grid_right = grid_left + card_width
     grid_bottom = grid_top + card_height
     left_time_col_w = int(card_width * 0.14)
@@ -172,14 +199,14 @@ def render_timetable_image(
     day_w = days_width / day_count
     slot_h = days_height / visible_slots
 
-    corner_radius = 22
+    corner_radius = 34
     card_fill = (20, 24, 34)
     band_fill = (24, 29, 40)
 
     # Subtle card shadow for separation on dark background.
-    draw.rounded_rectangle(
+    bg_draw.rounded_rectangle(
         (grid_left - 8, grid_top - 8, grid_right + 8, grid_bottom + 8),
-        radius=28,
+        radius=40,
         fill=(8, 11, 18),
     )
     draw.rounded_rectangle((grid_left, grid_top, grid_right, grid_bottom), radius=corner_radius, fill=card_fill)
@@ -264,8 +291,20 @@ def render_timetable_image(
         text_y = y0 + ((y1 - y0 - text_h) // 2) - 1
         draw.text((text_x, text_y), code_label, fill=(255, 255, 255), font=code_font)
 
+    # Smooth clip the whole card to rounded corners (anti-aliased).
+    rounded_mask = _build_rounded_mask(
+        size=(width, height),
+        bbox=(grid_left, grid_top, grid_right, grid_bottom),
+        radius=corner_radius,
+    )
+    card_layer.putalpha(rounded_mask)
+
+    composed = img.convert("RGBA")
+    composed.alpha_composite(card_layer)
+    final_img = composed.convert("RGB")
+
     buffer = BytesIO()
-    img.save(buffer, format="PNG", optimize=True)
+    final_img.save(buffer, format="PNG", optimize=True)
     buffer.seek(0)
     return buffer.getvalue()
 
