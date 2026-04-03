@@ -21,12 +21,8 @@ HELP = (
  
 HELP_DETAIL = (
     "*How it works?*\n\n"
-    "I securely connect to your USAS LMS using your credentials to monitor for updates.\n\n"
-    "Every hour, my system runs an automated check (a heartbeat scan) across all your courses. It looks for new assignments, quizzes, or task updates that you haven't been notified about yet.\n\n"
-    "When a change is detected, I immediately generate a notification bubble and send it to your chat here.\n\n"
-    "*Example*:\n"
-    "Think of it like a scheduled bus. If the bot is set to scan every hour at :00, and your lecturer uploads a task at 10:20 PM, the bot will pick it up at the next scheduled scan at 11:00 PM. This ensures you are always kept in the loop without having to manually refresh the LMS.\n\n"
-    "Contact @STEMUSAS for support."
+    "After you register, I check your USAS LMS automatically every hour, and if I find a new assignment, quiz, or deadline update, I send it to you right away. I also send reminder messages when your assignment is 3, 2, and 1 day before the deadline, you can tap *Check Now* anytime for an instant scan, and if you want your latest class schedule, just tap *Timetable* to generate the timetable image from LMS.\n\n"
+    "If you face any problems, please contact @STEMUSAS."
 )
 
 # ── Registration Flow ─────────────────────────────────────────────────────────
@@ -205,7 +201,7 @@ ASSIGNMENT_ITEM = (
 
 ASSIGNMENT_SUBJECT_LINE = "Subject: <b>{subject}</b>\n"
 ASSIGNMENT_DUE_LINE = "Due: <b>{due}</b>\n"
-ASSIGNMENT_LINK_LINE = "🔗 <a href=\"{link}\">Link</a>"
+ASSIGNMENT_LINK_LINE = "🔗 <a href=\"{link}\">Link Assignment</a>"
 
 # ── Admin Dashboard ───────────────────────────────────────────────────────────
 
