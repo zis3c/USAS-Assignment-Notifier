@@ -39,6 +39,7 @@ class UserEvent(Base):
     reminder_3d_sent_at = Column(DateTime, nullable=True)
     reminder_2d_sent_at = Column(DateTime, nullable=True)
     reminder_1d_sent_at = Column(DateTime, nullable=True)
+    reminder_24h_sent_at = Column(DateTime, nullable=True)
 
     __table_args__ = (UniqueConstraint("user_id", "event_id", name="uq_user_event"),)
 
