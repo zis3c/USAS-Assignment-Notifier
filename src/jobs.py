@@ -70,11 +70,22 @@ def _days_left_local(due_at: datetime, now_utc: datetime) -> int:
     return (due_local_date - now_local_date).days
 
 
+def _hours_left(due_at: datetime, now_utc: datetime) -> float:
+    return (due_at - now_utc).total_seconds() / 3600.0
+
+
 def _countdown_stage_days(due_at: Optional[datetime], now_utc: datetime) -> Optional[int]:
     if due_at is None:
         return None
+    if due_at < now_utc:
+        return None
+
+    # "1 day" stage is treated as a true rolling 24-hour window.
+    if _hours_left(due_at, now_utc) <= 24:
+        return 1
+
     days_left = _days_left_local(due_at, now_utc)
-    if days_left in COUNTDOWN_STAGE_FIELD:
+    if days_left in (3, 2):
         return days_left
     return None
 
@@ -339,7 +350,7 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
                 # Avoid auto-spam: generic pending reminders are manual-only.
                 # Auto polling should notify for:
                 # 1) new assignments, and
-                # 2) countdown stages (3/2/1 days) only.
+                # 2) countdown stages (3d/2d/rolling-24h) only.
                 if force_pending_reminders:
                     reminder_events.append(event)
 

@@ -22,7 +22,7 @@ HELP = (
 HELP_DETAIL = (
     "*How it works?*\n\n"
     "After you register, I check your USAS LMS automatically every hour, and if I find a new assignment, quiz, or deadline update, I send it to you right away.\n\n"
-    "I also send reminder messages when your assignment is 3, 2, and 1 day before the deadline, you can tap *Check Now* anytime for an instant scan, and if you want your latest class schedule, just tap *Timetable* to generate the timetable image from LMS.\n\n"
+    "I also send reminder messages when your assignment is 3 days, 2 days, and within 24 hours before the deadline, you can tap *Check Now* anytime for an instant scan, and if you want your latest class schedule, just tap *Timetable* to generate the timetable image from LMS.\n\n"
     "If you face any problems, please contact @STEMUSAS."
 )
 
