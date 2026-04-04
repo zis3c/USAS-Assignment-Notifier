@@ -146,7 +146,7 @@ CHECK_TEMP_ERROR = (
 
 COUNTDOWN_REMINDER_HEADER = (
     "📌 <b>Pending Assignment Reminder</b>\n\n"
-    "<b>{days} day(s) before deadline</b>\n"
+    "<b>{days_text} before deadline</b>\n"
     "<i>{quote}</i>"
 )
 
@@ -212,7 +212,7 @@ ASSIGNMENT_ITEM = (
 
 ASSIGNMENT_SUBJECT_LINE = "Subject: <b>{subject}</b>\n"
 ASSIGNMENT_DUE_LINE = "Due: <b>{due}</b>\n"
-ASSIGNMENT_LINK_LINE = "Link <a href=\"{link}\">Assignment</a>"
+ASSIGNMENT_LINK_LINE = "Link: <a href=\"{link}\">Assignment</a>"
 
 # ── Admin Dashboard ───────────────────────────────────────────────────────────
 

@@ -229,8 +229,9 @@ def _build_countdown_batches(events: list[dict], days_left: int, user_id: int) -
     if not quotes:
         return []
     quote = _pick_countdown_quote(user_id, days_left, quotes)
+    days_text = "24 hours" if days_left == 1 else f"{days_left} day(s)"
     header = strings.COUNTDOWN_REMINDER_HEADER.format(
-        days=days_left,
+        days_text=days_text,
         quote=escape(quote),
     )
     return _build_assignment_batches(events, header)
