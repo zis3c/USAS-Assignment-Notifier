@@ -59,7 +59,6 @@ async def _migrate_db_postgres(conn) -> None:
         "ALTER TABLE user_events ADD COLUMN IF NOT EXISTS reminder_3d_sent_at TIMESTAMP",
         "ALTER TABLE user_events ADD COLUMN IF NOT EXISTS reminder_2d_sent_at TIMESTAMP",
         "ALTER TABLE user_events ADD COLUMN IF NOT EXISTS reminder_1d_sent_at TIMESTAMP",
-        "ALTER TABLE user_events ADD COLUMN IF NOT EXISTS reminder_24h_sent_at TIMESTAMP",
     ]
     for sql in migrations:
         try:
@@ -80,7 +79,6 @@ def _migrate_db_sqlite() -> None:
         "ALTER TABLE user_events ADD COLUMN reminder_3d_sent_at DATETIME",
         "ALTER TABLE user_events ADD COLUMN reminder_2d_sent_at DATETIME",
         "ALTER TABLE user_events ADD COLUMN reminder_1d_sent_at DATETIME",
-        "ALTER TABLE user_events ADD COLUMN reminder_24h_sent_at DATETIME",
     ]
     import sqlite3
     conn = sqlite3.connect(config.DB_PATH)

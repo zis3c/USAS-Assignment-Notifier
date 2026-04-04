@@ -22,7 +22,7 @@ HELP = (
 HELP_DETAIL = (
     "*How it works?*\n\n"
     "After you register, I check your USAS LMS automatically every hour, and if I find a new assignment, quiz, or deadline update, I send it to you right away.\n\n"
-    "I also send reminder messages when your assignment is 3, 2, and 1 day before the deadline, plus under 24 hours before deadline, you can tap *Check Now* anytime for an instant scan, and if you want your latest class schedule, just tap *Timetable* to generate the timetable image from LMS.\n\n"
+    "I also send reminder messages when your assignment is 3, 2, and 1 day before the deadline, you can tap *Check Now* anytime for an instant scan, and if you want your latest class schedule, just tap *Timetable* to generate the timetable image from LMS.\n\n"
     "If you face any problems, please contact @STEMUSAS."
 )
 
@@ -146,16 +146,9 @@ CHECK_TEMP_ERROR = (
 
 COUNTDOWN_REMINDER_HEADER = (
     "📌 <b>Pending Assignment Reminder</b>\n\n"
-    "<b>{window}</b>\n"
+    "<b>{days} day(s) before deadline</b>\n"
     "<i>{quote}</i>"
 )
-
-COUNTDOWN_STAGE_LABELS = {
-    "3d": "3 day(s) before deadline",
-    "2d": "2 day(s) before deadline",
-    "1d": "1 day(s) before deadline",
-    "24h": "Under 24 hours before deadline",
-}
 
 COUNTDOWN_QUOTES_3D = [
     "Okay masih sempat. Tapi kalau kau tak start hari ni, esok memang sakit.",
@@ -197,29 +190,6 @@ COUNTDOWN_QUOTES_1D = [
 ]
 
 # ── Assignment Notification Card ──────────────────────────────────────────────
-
-COUNTDOWN_QUOTES_24HR = [
-    "24 JAM JE TINGGAL. KAU BUAT APA LAGI DUDUK DIAM?",
-    "MASA TENGAH LARI, KAU BOLEH LAGI BUAT TAK KISAH?",
-    "STOP SCROLL. BENDA TU TAK AKAN SIAP SENDIRI.",
-    "KAU NAK FAIL KE? SEBAB ITU JE YANG KAU TUNJUK SEKARANG.",
-    "JANGAN BAGI ALASAN BODOH. BUKA KERJA TU SEKARANG.",
-    "KAU INGAT ADA MASA LAGI? TAK ADA. DAH TERLAMBAT DAH.",
-    "DUDUK. DIAM. BUAT KERJA. SIMPLE JE.",
-    "MOOD TAK MOOD, KAU KENA BUAT JUGA. FAHAM?",
-    "KAU NAK MENYESAL ESOK? TERUSKAN BUANG MASA SEKARANG.",
-    "TAK PAYAH DRAMA. KAU JE YANG TAK START LAGI.",
-    "CLICK FAIL TU SEKARANG. TAK PAYAH FIKIR PANJANG.",
-    "SET TIMER DAN IKUT. JANGAN DEGIL.",
-    "KAU MALAS ATAU KAU TAKUT? APA-APA PUN, BUAT.",
-    "SETIAP MINIT KAU LENGAH, KAU ROSAKKAN PELUANG SENDIRI.",
-    "JANGAN HARAP MIRACLE. TAK ADA BENDA TU.",
-    "KAU NAK SENANG? BUAT SEKARANG. KALAU TAK, PADAN MUKA.",
-    "STOP LARI. HADAP KERJA TU SEKARANG.",
-    "INI BUKAN LAWAK. DEADLINE DAH DEKAT GILA.",
-    "KAU ADA MASA SEKARANG JE. LEPAS NI, SIAP.",
-    "KALAU KAU MASIH TAK START, MEMANG KAU YANG PILIH UNTUK FAIL.",
-]
 
 NEW_ASSIGNMENT_HEADER = "📚 <b>New Assignment</b>"
 PENDING_ASSIGNMENT_HEADER = "📌 <b>Pending Assignment Reminder</b>"

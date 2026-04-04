@@ -20,15 +20,13 @@ from src.models import User, UserEvent
 logger = logging.getLogger(__name__)
 
 COUNTDOWN_STAGE_FIELD = {
-    "3d": "reminder_3d_sent_at",
-    "2d": "reminder_2d_sent_at",
-    "1d": "reminder_1d_sent_at",
-    "24h": "reminder_24h_sent_at",
+    3: "reminder_3d_sent_at",
+    2: "reminder_2d_sent_at",
+    1: "reminder_1d_sent_at",
 }
-COUNTDOWN_STAGE_ORDER = ("3d", "2d", "1d", "24h")
 
-# Keep last used quote per (user_id, countdown_stage) to avoid immediate repeats.
-_LAST_COUNTDOWN_QUOTE: dict[tuple[int, str], str] = {}
+# Keep last used quote per (user_id, countdown_stage_days) to avoid immediate repeats.
+_LAST_COUNTDOWN_QUOTE: dict[tuple[int, int], str] = {}
 
 
 @dataclass
@@ -72,39 +70,22 @@ def _days_left_local(due_at: datetime, now_utc: datetime) -> int:
     return (due_local_date - now_local_date).days
 
 
-def _hours_left(due_at: datetime, now_utc: datetime) -> float:
-    return (due_at - now_utc).total_seconds() / 3600.0
-
-
-def _countdown_stage(due_at: Optional[datetime], now_utc: datetime) -> Optional[str]:
+def _countdown_stage_days(due_at: Optional[datetime], now_utc: datetime) -> Optional[int]:
     if due_at is None:
         return None
-    if due_at < now_utc:
-        return None
-
-    # Most urgent window first: under 24 hours before deadline.
-    if _hours_left(due_at, now_utc) <= 24:
-        return "24h"
-
     days_left = _days_left_local(due_at, now_utc)
-    if days_left == 3:
-        return "3d"
-    if days_left == 2:
-        return "2d"
-    if days_left == 1:
-        return "1d"
+    if days_left in COUNTDOWN_STAGE_FIELD:
+        return days_left
     return None
 
 
-def _countdown_quotes(stage: str) -> list[str]:
-    if stage == "3d":
+def _countdown_quotes(days_left: int) -> list[str]:
+    if days_left == 3:
         return strings.COUNTDOWN_QUOTES_3D
-    if stage == "2d":
+    if days_left == 2:
         return strings.COUNTDOWN_QUOTES_2D
-    if stage == "1d":
+    if days_left == 1:
         return strings.COUNTDOWN_QUOTES_1D
-    if stage == "24h":
-        return strings.COUNTDOWN_QUOTES_24HR
     return []
 
 
@@ -229,10 +210,10 @@ def _build_standard_batches(events: list[dict], is_reminder: bool) -> list[tuple
     return _build_assignment_batches(events, header)
 
 
-def _pick_countdown_quote(user_id: int, stage: str, quotes: list[str]) -> str:
+def _pick_countdown_quote(user_id: int, days_left: int, quotes: list[str]) -> str:
     if not quotes:
         return ""
-    key = (user_id, stage)
+    key = (user_id, days_left)
     last_quote = _LAST_COUNTDOWN_QUOTE.get(key)
     if len(quotes) > 1 and last_quote in quotes:
         pool = [quote for quote in quotes if quote != last_quote]
@@ -243,14 +224,13 @@ def _pick_countdown_quote(user_id: int, stage: str, quotes: list[str]) -> str:
     return chosen
 
 
-def _build_countdown_batches(events: list[dict], stage: str, user_id: int) -> list[tuple[str, list[str]]]:
-    quotes = _countdown_quotes(stage)
+def _build_countdown_batches(events: list[dict], days_left: int, user_id: int) -> list[tuple[str, list[str]]]:
+    quotes = _countdown_quotes(days_left)
     if not quotes:
         return []
-    quote = _pick_countdown_quote(user_id, stage, quotes)
-    window = strings.COUNTDOWN_STAGE_LABELS.get(stage, "Before deadline")
+    quote = _pick_countdown_quote(user_id, days_left, quotes)
     header = strings.COUNTDOWN_REMINDER_HEADER.format(
-        window=escape(window),
+        days=days_left,
         quote=escape(quote),
     )
     return _build_assignment_batches(events, header)
@@ -307,9 +287,7 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
 
         new_events: list[dict] = []
         reminder_events: list[dict] = []
-        countdown_events_by_stage: dict[str, list[dict]] = {
-            stage: [] for stage in COUNTDOWN_STAGE_ORDER
-        }
+        countdown_events_by_stage: dict[int, list[dict]] = {3: [], 2: [], 1: []}
         pending_count = 0
         seen_event_ids = set()
 
@@ -346,21 +324,21 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
                 if is_new:
                     continue
 
-                stage = _countdown_stage(due_at, now_utc)
-                if stage in COUNTDOWN_STAGE_FIELD:
-                    stage_field = COUNTDOWN_STAGE_FIELD[stage]
+                stage_days = _countdown_stage_days(due_at, now_utc)
+                if stage_days in COUNTDOWN_STAGE_FIELD:
+                    stage_field = COUNTDOWN_STAGE_FIELD[stage_days]
                     # For auto polling, send once per stage (DB-deduped).
                     # For manual Check Now, allow re-showing countdown reminders
                     # so users always get the full pending assignment card.
                     if force_pending_reminders or getattr(current, stage_field) is None:
-                        countdown_events_by_stage[stage].append(event)
+                        countdown_events_by_stage[stage_days].append(event)
                     # In countdown windows, motivational reminders replace normal pending reminders.
                     continue
 
                 # Avoid auto-spam: generic pending reminders are manual-only.
                 # Auto polling should notify for:
                 # 1) new assignments, and
-                # 2) countdown stages (3/2/1 days + under 24 hours) only.
+                # 2) countdown stages (3/2/1 days) only.
                 if force_pending_reminders:
                     reminder_events.append(event)
 
@@ -369,9 +347,7 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
 
     # Send notifications outside the DB session.
     sent_reminder_ids: set[str] = set()
-    sent_stage_ids: dict[str, set[str]] = {
-        stage: set() for stage in COUNTDOWN_STAGE_ORDER
-    }
+    sent_stage_ids: dict[int, set[str]] = {3: set(), 2: set(), 1: set()}
 
     for batch, _ in _build_standard_batches(new_events, is_reminder=False):
         await bot.send_message(
@@ -381,7 +357,7 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
             disable_web_page_preview=True,
         )
 
-    for stage in COUNTDOWN_STAGE_ORDER:
+    for stage in (3, 2, 1):
         stage_events = countdown_events_by_stage.get(stage, [])
         if not stage_events:
             continue
@@ -417,9 +393,12 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
             rows = result.scalars().all()
             for row in rows:
                 row.last_notified_at = notified_at
-                for stage, field_name in COUNTDOWN_STAGE_FIELD.items():
-                    if row.event_id in sent_stage_ids[stage] and getattr(row, field_name) is None:
-                        setattr(row, field_name, notified_at)
+                if row.event_id in sent_stage_ids[3] and row.reminder_3d_sent_at is None:
+                    row.reminder_3d_sent_at = notified_at
+                if row.event_id in sent_stage_ids[2] and row.reminder_2d_sent_at is None:
+                    row.reminder_2d_sent_at = notified_at
+                if row.event_id in sent_stage_ids[1] and row.reminder_1d_sent_at is None:
+                    row.reminder_1d_sent_at = notified_at
             await session.commit()
 
     return PollResult(
