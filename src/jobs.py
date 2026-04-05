@@ -14,7 +14,7 @@ from sqlalchemy import select
 from src import config, strings
 from src.crypto import decrypt_text, encrypt_text
 from src.database import AsyncSessionLocal, get_utc_now
-from src.lms_client import LMSAuthenticationError, LMSClient, extract_user_name
+from src.lms_client import LMSAuthenticationError, LMSClient, extract_user_name, is_assignment_url
 from src.models import User, UserEvent
 
 logger = logging.getLogger(__name__)
@@ -281,9 +281,31 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
         events = fetch_result.events
         now_utc = get_utc_now()
         chat_id = user.chat_id
+        submitted_by_link: dict[str, bool] = {}
 
         if fetch_result.session_cookie:
             user.session_cookie_blob = encrypt_text(fetch_result.session_cookie)
+
+        # Real submission-state check from assignment pages.
+        # If already submitted, reminders/pending should stop immediately.
+        submission_candidate_links = []
+        for event in events:
+            due_at = _to_utc_naive(event.get("due_at"))
+            link = str(event.get("link") or "")
+            if link and is_assignment_url(link) and _is_pending(due_at, now_utc):
+                submission_candidate_links.append(link)
+        if submission_candidate_links:
+            try:
+                client.session_cookie = fetch_result.session_cookie or client.session_cookie
+                submitted_by_link, refreshed_cookie = await client.fetch_submission_statuses(
+                    submission_candidate_links
+                )
+                if refreshed_cookie:
+                    user.session_cookie_blob = encrypt_text(refreshed_cookie)
+            except LMSAuthenticationError:
+                logger.warning("Submission-status auth failed for user %s", user_id)
+            except Exception as exc:
+                logger.warning("Submission-status check failed for user %s: %s", user_id, exc)
 
         # Update display name if freshly parsed
         if fetch_result.dashboard_html:
@@ -310,6 +332,8 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
             seen_event_ids.add(event_id)
             due_at = _to_utc_naive(event.get("due_at"))
             subject = (event.get("subject") or "").strip() or None
+            link = str(event.get("link") or "")
+            is_submitted = bool(link and submitted_by_link.get(link))
             current = existing_by_id.get(event_id)
             is_new = current is None
 
@@ -324,7 +348,8 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
                 )
                 session.add(current)
                 existing_by_id[event_id] = current
-                new_events.append(event)
+                if not is_submitted:
+                    new_events.append(event)
             else:
                 current.title = event["title"]
                 current.subject = subject or current.subject
@@ -332,6 +357,8 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
                 current.link = event.get("link")
 
             if _is_pending(due_at, now_utc):
+                if is_submitted:
+                    continue
                 pending_count += 1
                 if is_new:
                     continue

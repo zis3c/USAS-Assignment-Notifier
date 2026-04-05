@@ -1,4 +1,5 @@
 """LMS HTTP client : login, event fetching, and HTML parsing."""
+import asyncio
 import json
 import logging
 import re
@@ -34,6 +35,42 @@ DEFAULT_TIMETABLE_SLOTS: List[Tuple[str, str]] = [
     ("11 PM", "12 AM"),
 ]
 
+SUBMISSION_STATUS_LABEL_HINTS = (
+    "submission status",
+    "status penghantaran",
+)
+SUBMISSION_STATUS_POSITIVE_HINTS = (
+    "submitted for grading",
+    "submitted for marking",
+    "already submitted",
+    "graded",
+    "marked",
+    "telah dihantar",
+    "sudah dihantar",
+    "dihantar untuk penilaian",
+    "dihantar untuk pemarkahan",
+    "telah dinilai",
+)
+SUBMISSION_STATUS_NEGATIVE_HINTS = (
+    "not submitted",
+    "draft (not submitted)",
+    "no attempt",
+    "nothing submitted",
+    "belum dihantar",
+    "tiada cubaan",
+    "belum hantar",
+)
+SUBMISSION_BUTTON_POSITIVE_HINTS = (
+    "edit submission",
+    "view submission",
+    "sunting penghantaran",
+    "lihat penghantaran",
+)
+SUBMISSION_BUTTON_NEGATIVE_HINTS = (
+    "add submission",
+    "tambah penghantaran",
+)
+
 
 class LMSAuthenticationError(Exception):
     """Raised when LMS authentication fails."""
@@ -44,6 +81,53 @@ class LMSAuthenticationError(Exception):
 def is_login_url(url: str) -> bool:
     lowered = url.lower()
     return "/login/" in lowered or "login" in lowered or "/v2/index.php" in lowered
+
+
+def is_assignment_url(url: str) -> bool:
+    return "/mod/assign/view.php" in (url or "").lower()
+
+
+def _normalize_text(value: str) -> str:
+    return " ".join((value or "").split()).strip().lower()
+
+
+def _classify_submission_text(value: str) -> Optional[bool]:
+    text = _normalize_text(value)
+    if not text:
+        return None
+    if any(token in text for token in SUBMISSION_STATUS_NEGATIVE_HINTS):
+        return False
+    if any(token in text for token in SUBMISSION_STATUS_POSITIVE_HINTS):
+        return True
+    return None
+
+
+def parse_is_submitted_from_assignment_html(html: str) -> Optional[bool]:
+    """Return True/False if assignment submission status can be inferred, otherwise None."""
+    soup = BeautifulSoup(html, "html.parser")
+
+    # 1) Prefer explicit status row in submission status tables.
+    for row in soup.select("tr"):
+        cells = row.find_all(["th", "td"])
+        if len(cells) < 2:
+            continue
+        label = _normalize_text(cells[0].get_text(" ", strip=True))
+        if any(hint in label for hint in SUBMISSION_STATUS_LABEL_HINTS):
+            value = cells[1].get_text(" ", strip=True)
+            classified = _classify_submission_text(value)
+            if classified is not None:
+                return classified
+
+    # 2) Fallback to action buttons/links that usually exist on assign page.
+    action_text = _normalize_text(" ".join(el.get_text(" ", strip=True) for el in soup.select("a, button")))
+    if any(token in action_text for token in SUBMISSION_BUTTON_NEGATIVE_HINTS):
+        return False
+    if any(token in action_text for token in SUBMISSION_BUTTON_POSITIVE_HINTS):
+        return True
+
+    # 3) Final fallback: broad page text scan.
+    page_text = _normalize_text(soup.get_text(" ", strip=True))
+    return _classify_submission_text(page_text)
 
 
 def extract_sesskey(html: str) -> Optional[str]:
@@ -567,6 +651,51 @@ class LMSClient:
                 dashboard_html=html,
             )
 
+    async def fetch_submission_statuses(
+        self, assignment_links: Iterable[str]
+    ) -> Tuple[Dict[str, bool], Optional[str]]:
+        """Return a mapping {assignment_link: is_submitted} for assignment URLs."""
+        unique_links: List[str] = []
+        seen = set()
+        for link in assignment_links:
+            if not link or not isinstance(link, str) or not is_assignment_url(link):
+                continue
+            if link in seen:
+                continue
+            seen.add(link)
+            unique_links.append(link)
+
+        if not unique_links:
+            return {}, self.session_cookie
+
+        jar = aiohttp.CookieJar(unsafe=True)
+        if self.session_cookie:
+            jar.update_cookies(
+                {"MoodleSession": self.session_cookie},
+                response_url=URL(config.LMS_BASE_URL),
+            )
+
+        timeout = aiohttp.ClientTimeout(total=60)
+        async with aiohttp.ClientSession(
+            cookie_jar=jar,
+            connector=aiohttp.TCPConnector(ssl=False),
+            timeout=timeout,
+        ) as session:
+            # Ensure authenticated session (self-healing login if needed).
+            await self._get_dashboard_html(session)
+
+            sem = asyncio.Semaphore(min(config.MAX_CONCURRENCY, 5))
+            statuses: Dict[str, bool] = {}
+
+            async def run_one(link: str) -> None:
+                async with sem:
+                    submitted = await self._is_assignment_submitted(session, link)
+                    if submitted is not None:
+                        statuses[link] = submitted
+
+            await asyncio.gather(*(run_one(link) for link in unique_links))
+            return statuses, self._extract_session_cookie(session)
+
     async def _get_dashboard_html(self, session: aiohttp.ClientSession) -> Tuple[str, bool]:
         """Fetch dashboard HTML, logging in if necessary."""
         dashboard_url = f"{config.LMS_BASE_URL}/my/"
@@ -667,6 +796,39 @@ class LMSClient:
                     return parsed
 
         return []
+
+    async def _is_assignment_submitted(
+        self, session: aiohttp.ClientSession, assignment_url: str
+    ) -> Optional[bool]:
+        """Check assignment page and infer whether submission is already made."""
+        try:
+            async with session.get(assignment_url, allow_redirects=True) as resp:
+                html = await resp.text()
+                final_url = str(resp.url)
+        except Exception as exc:
+            logger.warning("Assignment status fetch failed for %s: %s", assignment_url, exc)
+            return None
+
+        if is_login_url(final_url):
+            # Session may have expired between calls; retry once after login.
+            try:
+                await self._login(session)
+            except LMSAuthenticationError:
+                return None
+            except Exception as exc:
+                logger.warning("Re-login failed while checking submission status: %s", exc)
+                return None
+
+            try:
+                async with session.get(assignment_url, allow_redirects=True) as retry_resp:
+                    html = await retry_resp.text()
+                    if is_login_url(str(retry_resp.url)):
+                        return None
+            except Exception as exc:
+                logger.warning("Assignment status retry failed for %s: %s", assignment_url, exc)
+                return None
+
+        return parse_is_submitted_from_assignment_html(html)
 
     def _extract_session_cookie(self, session: aiohttp.ClientSession) -> Optional[str]:
         cookies = session.cookie_jar.filter_cookies(config.LMS_BASE_URL)
