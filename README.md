@@ -203,5 +203,5 @@ USAS-Assignment-Notifier/
 - [SECURITY.md](SECURITY.md)
 - [LICENSE](LICENSE)
 
-<center>Built with love by <b>@zis3c</b></center>
+<center>Built with 🔥 by <b>@zis3c</b></center>
 
