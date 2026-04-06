@@ -196,4 +196,12 @@ USAS-Assignment-Notifier/
 - **Windows dependency issues**
   - Use Python 3.10 or 3.11 virtual environment.
 
-<center>Built with ❤️ by <b>@zis3c</b></center>
+## Additional Docs
+
+- [INSTALLATION.md](INSTALLATION.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [SECURITY.md](SECURITY.md)
+- [LICENSE](LICENSE)
+
+<center>Built with love by <b>@zis3c</b></center>
+
