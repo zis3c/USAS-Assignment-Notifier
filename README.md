@@ -195,3 +195,5 @@ USAS-Assignment-Notifier/
   - Recheck matric/password and LMS accessibility.
 - **Windows dependency issues**
   - Use Python 3.10 or 3.11 virtual environment.
+
+<center>Built with ❤️ by <b>@zis3c</b></center>
