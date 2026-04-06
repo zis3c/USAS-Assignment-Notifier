@@ -1,75 +1,197 @@
-# USAS DueBot 🎓📝
+# USAS Assignment Notifier (USAS DueBot)
 
-A professional Telegram bot designed for USAS students to stay on top of their LMS assignments. Never miss a deadline again with real-time notifications and automated deadline tracking.
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
+![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram&logoColor=white)
+![PTB](https://img.shields.io/badge/python--telegram--bot-v22.5-2AABEE)
+![aiohttp](https://img.shields.io/badge/aiohttp-Async%20HTTP-005571)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-red)
+![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
+![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)
 
-## 🚀 Features
+A secure async Telegram bot for USAS students that monitors LMS assignments, sends deadline reminders (3 days, 2 days, within 24 hours), and generates a phone-ready timetable wallpaper directly from LMS.
 
-- **Real-time Notifications**: Get alerted instantly when new assignments are posted on the USAS LMS.
-- **Deadline Tracking**: Automated reminders to help you manage your study schedule.
-- **Timetable Factory**: Generate a portrait weekly timetable wallpaper directly from LMS data.
-- **Secure Integration**: Safely link your LMS account with encrypted credential storage.
-- **Easy Access**: Quick links to jump directly to your assignment tasks.
+> [!NOTE]
+> **Security-first design**: LMS credentials and session cookies are encrypted with Fernet before storage, and plaintext credentials are only used in-memory during login.
 
-## 🛠️ Setup & Deployment
+## Features
 
-### Development / Manual Setup
-1. **Clone & Install**:
+- Async event-driven polling with `python-telegram-bot`, `asyncio`, and `aiohttp`.
+- Secure LMS account linking:
+  - STEM membership validation via Google Sheets.
+  - Encrypted credential storage (`FERNET_KEY`).
+  - Session cookie reuse with self-healing re-login.
+- Smart assignment notifications:
+  - New assignment alerts.
+  - Countdown reminders at 3 days, 2 days, and within 24 hours.
+  - Deduped notifications (no repeated stage spam).
+  - Real submission-status check from assignment pages (reminders stop once submitted).
+- Manual scan via `/check` (or **Check Now** button).
+- Timetable factory:
+  - Fetches timetable from LMS dashboard HTML.
+  - Generates high-resolution portrait class schedule image for lock/home screen use.
+- Admin tools:
+  - User stats/list, poll-all-now, maintenance mode, ban/unban, DB backup.
+  - Daily activity log report auto-send.
+
+## Installation
+
+1. **Clone the repository**
    ```bash
    git clone https://github.com/zis3c/USAS-Assignment-Notifier.git
    cd USAS-Assignment-Notifier
+   ```
+
+2. **Create and activate virtual environment**
+   ```bash
+   python -m venv .venv
+   # Windows PowerShell
+   .\.venv\Scripts\Activate.ps1
+   # Linux/macOS
+   # source .venv/bin/activate
+   ```
+
+3. **Install dependencies**
+   ```bash
    pip install -r requirements.txt
    ```
-2. **Configure**:
-   Copy `.env.example` to `.env` and fill in your tokens.
-3. **Run**:
+
+4. **Configure environment**
+   ```bash
+   copy .env.example .env   # Windows
+   # cp .env.example .env   # Linux/macOS
+   ```
+
+5. **Generate `FERNET_KEY`**
+   ```bash
+   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+   ```
+   Paste that value into `.env`.
+
+6. **Run bot**
    ```bash
    python bot.py
    ```
-
-### 🐳 Production Deployment (Recommended)
-The easiest way to run the bot on your cloud server is using **Docker Compose**:
-
-1. **Prepare**: Ensure Docker and Docker Compose are installed.
-2. **Configure**: Create your `.env` file (see `.env.example`).
-3. **Launch**:
-   ```bash
-   docker-compose up -d
+   or:
+   ```powershell
+   .\run.ps1
    ```
-This setup includes:
-- **Automatic Restarts**: The bot restarts automatically if the server reboots or the process crashes.
-- **Persistent Data**: Database and logs are stored in `./data` and `./logs` on your host.
-## 📜 Admin Commands
-Access these by sending `/admin` (if your ID is set as `ADMIN_ID` in `.env`):
-- **User Stats**: Quick overview of registration.
-- **Broadcast**: Send a message to all active users.
-- **Server Performance**: Real-time CPU, RAM, and Disk usage monitoring.
-- **Maint. Mode**: Toggle global maintenance.
-- **View Logs**: Download the latest bot logs directly.
 
-## 🚀 Deployment (Render)
+## Environment Variables
 
-This bot is optimized for deployment as a **Render Web Service** with **PostgreSQL**.
+Core:
+- `BOT_TOKEN` - Telegram bot token from [@BotFather](https://t.me/BotFather)
+- `FERNET_KEY` - Encryption key for LMS credentials/cookies
+- `LMS_BASE_URL` - Default: `https://lms.usas.edu.my`
 
-### 1. One-Click Setup
-1.  In the Render Dashboard, click **New +** -> **Blueprint**.
-2.  Connect this GitHub repository.
-3.  Render will automatically detect the `render.yaml` and provision:
-    *   **Web Service**: For the bot and health checks.
-    *   **PostgreSQL**: For persistent data storage.
+Polling and reminders:
+- `POLL_INTERVAL_SECONDS` - Auto scan interval (default `3600`)
+- `MAX_CONCURRENCY` - Concurrent user polling limit
+- `EVENT_HORIZON_DAYS` - LMS event horizon window
+- `REMINDER_INTERVAL_SECONDS` - Generic reminder cooldown
 
-### 2. Environment Variables
-Configure these in the Render Dashboard (**Environment** section):
-- `BOT_TOKEN`: Telegram Bot API token.
-- `ADMIN_ID`: Your Telegram numeric ID.
-- `FERNET_KEY`: Generated encryption key.
-- `SHEET_ID`: Google Sheet ID for membership data.
-- `GOOGLE_CREDENTIALS`: Service account JSON string.
-- `RENDER_EXTERNAL_URL`: Your app's public URL (e.g., `https://usas-due-bot.onrender.com`).
+Admin and logs:
+- `ADMIN_ID` - Telegram numeric user ID of admin
+- `DAILY_LOG_HOUR` / `DAILY_LOG_MINUTE` - Daily activity report time (Asia/Kuala_Lumpur)
+- `LOG_FILE_PATH` - Bot runtime log path
+- `ACTIVITY_LOG_PATH` - User activity log path
 
-### 3. Sustainability Features
-- **Self-Pinger**: The bot automatically pings its own `/health` endpoint every 14 minutes to stay active on Render's free tier.
-- **Port Binding**: Uses port `10000` (default) for Render health checks.
-- **Persistent DB**: Uses PostgreSQL to ensure registrations and settings survive restarts.
+Database:
+- `DB_PATH` - SQLite path for local mode
+- `DATABASE_URL` - PostgreSQL URL (Render/production)
 
----
-© 2026 USAS Assignment Notifier Team
+STEM verification (required for registration flow):
+- `SHEET_ID`
+- `GOOGLE_CREDENTIALS` (JSON string) or `service_account.json` file
+
+Render keep-alive:
+- `PORT`
+- `RENDER_EXTERNAL_URL`
+
+## Deploy to Render
+
+This repo includes `render.yaml` with:
+- Web service (`python bot.py`)
+- PostgreSQL database
+- Health check endpoint (`/health`)
+
+Steps:
+1. Create a new **Blueprint** service on Render from this repo.
+2. Set required environment variables in Render dashboard:
+   - `BOT_TOKEN`, `FERNET_KEY`, `ADMIN_ID`
+   - `SHEET_ID`, `GOOGLE_CREDENTIALS`
+   - `RENDER_EXTERNAL_URL`
+3. Deploy.
+
+## Project Structure
+
+```text
+USAS-Assignment-Notifier/
+|- bot.py                    # Application entrypoint, handlers, scheduler bootstrap
+|- run.ps1                   # Windows launcher
+|- requirements.txt          # Python dependencies
+|- render.yaml               # Render blueprint config
+|- Dockerfile                # Container build config
+|- .env.example              # Environment template
+|- assets/
+|  `- fonts/                 # Timetable renderer fonts
+|- data/                     # SQLite database (local)
+|- logs/                     # Runtime and activity logs
+`- src/
+   |- config.py              # Environment loading and runtime constants
+   |- crypto.py              # Fernet encryption/decryption helpers
+   |- database.py            # Async SQLAlchemy engine + migrations
+   |- models.py              # ORM models (users, user_events, settings)
+   |- handlers.py            # Telegram command/button/conversation handlers
+   |- jobs.py                # Polling jobs, reminders, daily logs
+   |- lms_client.py          # LMS login/session/events/timetable/submission checks
+   |- timetable_renderer.py  # Portrait timetable image rendering (Pillow)
+   |- keyboards.py           # Reply/inline keyboard layouts
+   |- strings.py             # User-facing text constants
+   |- sheets_client.py       # Google Sheets STEM membership verification
+   `- logging_utils.py       # Activity logging
+```
+
+## Commands
+
+| Command | Description |
+|:--------|:------------|
+| `/start` | Open main menu |
+| `/register` | Link LMS account (STEM-verified flow) |
+| `/status` | Show linked account and last scan |
+| `/check` | Trigger immediate LMS scan |
+| `/timetable` | Generate class schedule image from LMS |
+| `/help` | Show usage guide |
+| `/logout` | Logout and disable account |
+| `/unregister` | Alias of `/logout` |
+
+### Admin Commands
+
+| Command | Description |
+|:--------|:------------|
+| `/admin` | Open admin dashboard |
+| `/logs` | Download activity log file |
+
+## How It Works
+
+1. User registers with STEM membership ID, matric number, and LMS password.
+2. Bot validates membership from Google Sheets, then verifies LMS login.
+3. Credentials are encrypted and stored; session cookie is reused when possible.
+4. Hourly scheduler polls LMS events for active users.
+5. Bot sends:
+   - New assignment alerts
+   - Countdown reminders (3d/2d/within 24h)
+   - Manual pending reminders on **Check Now**
+6. Before sending pending reminders, bot checks assignment page status to skip already submitted work.
+7. `/timetable` fetches LMS timetable HTML and returns a portrait wallpaper-style schedule image.
+
+## Troubleshooting
+
+- **No auto daily logs**
+  - Ensure `ADMIN_ID` is set correctly.
+  - Ensure `ACTIVITY_LOG_PATH` exists and has content.
+- **Registration fails at STEM check**
+  - Verify `SHEET_ID` and `GOOGLE_CREDENTIALS` (or `service_account.json`).
+- **LMS login fails**
+  - Recheck matric/password and LMS accessibility.
+- **Windows dependency issues**
+  - Use Python 3.10 or 3.11 virtual environment.
