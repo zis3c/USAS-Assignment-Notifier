@@ -64,12 +64,6 @@ def _should_send_reminder(last_notified_at: Optional[datetime], now_utc: datetim
     return seconds_since_last >= config.REMINDER_INTERVAL_SECONDS
 
 
-def _days_left_local(due_at: datetime, now_utc: datetime) -> int:
-    due_local_date = due_at.replace(tzinfo=timezone.utc).astimezone(config.LOCAL_TZ).date()
-    now_local_date = now_utc.replace(tzinfo=timezone.utc).astimezone(config.LOCAL_TZ).date()
-    return (due_local_date - now_local_date).days
-
-
 def _hours_left(due_at: datetime, now_utc: datetime) -> float:
     return (due_at - now_utc).total_seconds() / 3600.0
 
@@ -80,13 +74,17 @@ def _countdown_stage_days(due_at: Optional[datetime], now_utc: datetime) -> Opti
     if due_at < now_utc:
         return None
 
-    # "1 day" stage is treated as a true rolling 24-hour window.
-    if _hours_left(due_at, now_utc) <= 24:
+    # Use true rolling windows so stages match 72/48/24-hour countdown semantics.
+    hours_left = _hours_left(due_at, now_utc)
+    if hours_left <= 24:
         return 1
 
-    days_left = _days_left_local(due_at, now_utc)
-    if days_left in (3, 2):
-        return days_left
+    if hours_left <= 48:
+        return 2
+
+    if hours_left <= 72:
+        return 3
+
     return None
 
 

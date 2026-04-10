@@ -18,7 +18,7 @@ if sys.platform == "win32":
 
 from telegram import BotCommand, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, CallbackQueryHandler, filters, TypeHandler, ApplicationHandlerStop
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import asyncio
 from aiohttp import web, ClientSession
 
@@ -74,6 +74,16 @@ logging.getLogger("telegram").setLevel(logging.WARNING)
 logger = logging.getLogger("lms_notifier")
 
 
+def _seconds_until_next_poll_tick(interval_seconds: int) -> float:
+    """Seconds until the next local interval boundary (e.g. HH:00 when interval=3600)."""
+    now_local = datetime.now(config.LOCAL_TZ)
+    midnight_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    elapsed_seconds = (now_local - midnight_local).total_seconds()
+    remainder = elapsed_seconds % interval_seconds
+    # If we're exactly on the boundary, run immediately.
+    return (interval_seconds - remainder) % interval_seconds
+
+
 # ── Startup hook ──────────────────────────────────────────────────────────────
 async def configure_runtime(app: Application) -> None:
     """Configure command list and recurring jobs (safe to call multiple times)."""
@@ -101,12 +111,22 @@ async def configure_runtime(app: Application) -> None:
         logger.error("JobQueue unavailable: auto polling/reminders/daily logs are disabled.")
         return
 
+    poll_interval = max(1, config.POLL_INTERVAL_SECONDS)
+    if poll_interval != config.POLL_INTERVAL_SECONDS:
+        logger.warning(
+            "Invalid POLL_INTERVAL_SECONDS=%s; using %s instead.",
+            config.POLL_INTERVAL_SECONDS,
+            poll_interval,
+        )
+    first_poll_in = _seconds_until_next_poll_tick(poll_interval)
+    next_poll_local = datetime.now(config.LOCAL_TZ) + timedelta(seconds=first_poll_in)
+
     # Schedule periodic polling once.
     if not app.job_queue.get_jobs_by_name("poll_all_users"):
         app.job_queue.run_repeating(
             poll_all_users,
-            interval=config.POLL_INTERVAL_SECONDS,
-            first=10,
+            interval=poll_interval,
+            first=first_poll_in,
             name="poll_all_users",
         )
 
@@ -126,8 +146,9 @@ async def configure_runtime(app: Application) -> None:
         )
 
     logger.info(
-        "Scheduler started - polling every %ss, daily logs at %02d:%02d (%s)",
-        config.POLL_INTERVAL_SECONDS,
+        "Scheduler started - polling every %ss (next at %s), daily logs at %02d:%02d (%s)",
+        poll_interval,
+        next_poll_local.strftime("%Y-%m-%d %H:%M:%S"),
         config.DAILY_LOG_HOUR,
         config.DAILY_LOG_MINUTE,
         getattr(config.LOCAL_TZ, "key", str(config.LOCAL_TZ)),
