@@ -127,6 +127,7 @@ This project is currently deployed on a DigitalOcean Droplet using polling + `sy
 
 This repository includes `.github/workflows/deploy-digitalocean.yml`.
 Every push to `main` triggers automatic deployment to the droplet.
+For full setup and troubleshooting, see [AUTO_DEPLOY.md](AUTO_DEPLOY.md).
 
 Required repository secrets:
 - `DROPLET_HOST` (example: `203.0.113.10`)
@@ -213,6 +214,7 @@ USAS-Assignment-Notifier/
 
 ## Additional Docs
 
+- [AUTO_DEPLOY.md](AUTO_DEPLOY.md)
 - [INSTALLATION.md](INSTALLATION.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [SECURITY.md](SECURITY.md)
