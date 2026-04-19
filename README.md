@@ -123,6 +123,21 @@ This project is currently deployed on a DigitalOcean Droplet using polling + `sy
    sudo systemctl enable --now assignment-notifier
    ```
 
+## Auto Deploy (GitHub Actions)
+
+This repository includes `.github/workflows/deploy-digitalocean.yml`.
+Every push to `main` triggers automatic deployment to the droplet.
+
+Required repository secrets:
+- `DROPLET_HOST` (example: `203.0.113.10`)
+- `DROPLET_USER` (recommended: `deploy`)
+- `DROPLET_SSH_KEY` (private SSH key for the deploy user)
+
+Server assumptions:
+- App path: `/opt/assignment-notifier`
+- Service name: `assignment-notifier`
+- Deploy user can run `sudo systemctl restart assignment-notifier`
+
 ## Project Structure
 
 ```text
