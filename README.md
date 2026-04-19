@@ -97,30 +97,33 @@ Admin and logs:
 
 Database:
 - `DB_PATH` - SQLite path for local mode
-- `DATABASE_URL` - PostgreSQL URL (Render/production)
+- `DATABASE_URL` - Optional PostgreSQL URL (legacy/advanced use; default deployment uses SQLite)
 
 STEM verification (required for registration flow):
 - `SHEET_ID`
 - `GOOGLE_CREDENTIALS` (JSON string) or `service_account.json` file
 
-Render keep-alive:
-- `PORT`
-- `RENDER_EXTERNAL_URL`
+Server runtime:
+- `PORT` - Local health endpoint port (set `10001` in DigitalOcean setup)
+- `RENDER_EXTERNAL_URL` - Optional legacy keep-alive URL (leave empty on DigitalOcean polling mode)
 
-## Deploy to Render
+## Deploy to DigitalOcean (Recommended)
 
-This repo includes `render.yaml` with:
-- Web service (`python bot.py`)
-- PostgreSQL database
-- Health check endpoint (`/health`)
+This project is currently deployed on a DigitalOcean Droplet using polling + `systemd`.
 
-Steps:
-1. Create a new **Blueprint** service on Render from this repo.
-2. Set required environment variables in Render dashboard:
-   - `BOT_TOKEN`, `FERNET_KEY`, `ADMIN_ID`
-   - `SHEET_ID`, `GOOGLE_CREDENTIALS`
-   - `RENDER_EXTERNAL_URL`
-3. Deploy.
+1. Clone the repo on the droplet and install dependencies.
+2. Copy `.env` (without committing secrets) and place `service_account.json` in project root.
+3. Keep `RENDER_EXTERNAL_URL` empty for polling mode.
+4. Run with a systemd service, for example:
+   - `WorkingDirectory=/opt/assignment-notifier`
+   - `ExecStart=/opt/assignment-notifier/.venv/bin/python /opt/assignment-notifier/bot.py`
+5. Enable service:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now assignment-notifier
+   ```
+
+Legacy note: `render.yaml` remains in this repository for migration reference only.
 
 ## Project Structure
 
@@ -129,7 +132,7 @@ USAS-Assignment-Notifier/
 |- bot.py                    # Application entrypoint, handlers, scheduler bootstrap
 |- run.ps1                   # Windows launcher
 |- requirements.txt          # Python dependencies
-|- render.yaml               # Render blueprint config
+|- render.yaml               # Legacy Render blueprint (migration reference)
 |- Dockerfile                # Container build config
 |- .env.example              # Environment template
 |- assets/
