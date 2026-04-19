@@ -41,9 +41,9 @@ GOOGLE_CREDENTIALS: str = os.getenv("GOOGLE_CREDENTIALS", "") # JSON string
 # ── Time & DB ─────────────────────────────────────────────────────────────────
 LOCAL_TZ = ZoneInfo("Asia/Kuala_Lumpur")
 DB_PATH: str = os.getenv("DB_PATH", "data/lms_notifier.db")
-DATABASE_URL: str = os.getenv("DATABASE_URL", "") # For Render PostgreSQL (asyncpg)
+DATABASE_URL: str = os.getenv("DATABASE_URL", "") # Optional PostgreSQL URL (asyncpg)
 
-# ── Render & Self-Pinger ──────────────────────────────────────────────────────
+# ── Web Runtime & Self-Pinger ─────────────────────────────────────────────────
 PORT: int = int(os.getenv("PORT", "10000"))
-RENDER_EXTERNAL_URL: str = os.getenv("RENDER_EXTERNAL_URL", "") # e.g. https://asas-bot.onrender.com
+PUBLIC_BASE_URL: str = os.getenv("PUBLIC_BASE_URL", "").rstrip("/") # e.g. https://bot.example.com
 SELF_PING_INTERVAL: int = 14 * 60 # 14 minutes

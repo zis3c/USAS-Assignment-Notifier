@@ -276,19 +276,19 @@ def build_app() -> Application:
     return app
 
 
-# ── Render & Self-Pinger ──────────────────────────────────────────────────────
+# ── Web Runtime & Self-Pinger ─────────────────────────────────────────────────
 
 async def self_pinger() -> None:
-    """Pings the bot's own URL every 14 minutes to prevent sleep on Render."""
-    if not config.RENDER_EXTERNAL_URL:
-        logger.info("📡 RENDER_EXTERNAL_URL not set. Self-pinger disabled.")
+    """Pings the bot's public URL every 14 minutes when configured."""
+    if not config.PUBLIC_BASE_URL:
+        logger.info("📡 PUBLIC_BASE_URL not set. Self-pinger disabled.")
         return
 
     logger.info("💓 Self-pinger started (Interval: 14m)")
     while True:
         await asyncio.sleep(config.SELF_PING_INTERVAL)
         try:
-            url = f"{config.RENDER_EXTERNAL_URL.rstrip('/')}/health"
+            url = f"{config.PUBLIC_BASE_URL}/health"
             async with ClientSession() as session:
                 async with session.get(url) as resp:
                     if resp.status == 200:
@@ -299,7 +299,7 @@ async def self_pinger() -> None:
             logger.error(f"⚠️ Self-Ping Failed: {e}")
 
 async def health_check(request: web.Request) -> web.Response:
-    """Simple health check endpoint for Render and UptimeRobot."""
+    """Simple health check endpoint for uptime monitoring."""
     return web.Response(text="Alive", status=200)
 
 async def start_web_server() -> None:
@@ -332,7 +332,7 @@ async def run_bot() -> None:
     """Main async entry point for the bot and web server."""
     logger.info("🚀  LMS Assignment Notifier starting…")
     
-    # 1. Start Web Server immediately to satisfy Render's health check
+    # 1. Start web server immediately so health probes can reach the bot.
     await start_web_server()
 
     # 2. Initialize Database

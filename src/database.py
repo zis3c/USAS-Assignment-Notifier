@@ -23,7 +23,7 @@ if is_sqlite:
     os.makedirs(os.path.dirname(config.DB_PATH), exist_ok=True)
     db_url = f"sqlite+aiosqlite:///{config.DB_PATH}"
 else:
-    # Render's DATABASE_URL usually starts with postgres:// or postgresql://
+    # Hosted DATABASE_URL values usually start with postgres:// or postgresql://
     # SQLAlchemy 2.0+ with create_async_engine MUST use postgresql+asyncpg://
     db_url = config.DATABASE_URL
     if db_url.startswith("postgres://"):

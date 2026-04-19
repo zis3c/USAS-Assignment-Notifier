@@ -105,7 +105,7 @@ STEM verification (required for registration flow):
 
 Server runtime:
 - `PORT` - Local health endpoint port (set `10001` in DigitalOcean setup)
-- `RENDER_EXTERNAL_URL` - Optional legacy keep-alive URL (leave empty on DigitalOcean polling mode)
+- `PUBLIC_BASE_URL` - Optional public URL for health self-ping (leave empty on DigitalOcean polling mode)
 
 ## Deploy to DigitalOcean (Recommended)
 
@@ -113,7 +113,7 @@ This project is currently deployed on a DigitalOcean Droplet using polling + `sy
 
 1. Clone the repo on the droplet and install dependencies.
 2. Copy `.env` (without committing secrets) and place `service_account.json` in project root.
-3. Keep `RENDER_EXTERNAL_URL` empty for polling mode.
+3. Keep `PUBLIC_BASE_URL` empty for polling mode.
 4. Run with a systemd service, for example:
    - `WorkingDirectory=/opt/assignment-notifier`
    - `ExecStart=/opt/assignment-notifier/.venv/bin/python /opt/assignment-notifier/bot.py`
@@ -123,8 +123,6 @@ This project is currently deployed on a DigitalOcean Droplet using polling + `sy
    sudo systemctl enable --now assignment-notifier
    ```
 
-Legacy note: `render.yaml` remains in this repository for migration reference only.
-
 ## Project Structure
 
 ```text
@@ -132,7 +130,6 @@ USAS-Assignment-Notifier/
 |- bot.py                    # Application entrypoint, handlers, scheduler bootstrap
 |- run.ps1                   # Windows launcher
 |- requirements.txt          # Python dependencies
-|- render.yaml               # Legacy Render blueprint (migration reference)
 |- Dockerfile                # Container build config
 |- .env.example              # Environment template
 |- assets/

@@ -104,14 +104,17 @@ Run:
 docker run --env-file .env -p 10000:10000 usas-due-bot
 ```
 
-## Render Deployment (Optional)
+## DigitalOcean Deployment (Recommended)
 
-This repo includes `render.yaml`.
-
-1. Create a **Blueprint** deployment in Render.
-2. Connect this repository.
-3. Configure required environment variables in Render dashboard.
-4. Deploy and verify `/health` endpoint.
+1. Create `/opt/assignment-notifier` on your droplet and clone this repository.
+2. Create and activate a virtual environment, then install dependencies:
+   - `python3 -m venv .venv`
+   - `. .venv/bin/activate`
+   - `pip install -r requirements.txt`
+3. Configure `.env` with production values, then keep `PUBLIC_BASE_URL` empty for polling mode.
+4. Create a `systemd` service to run `python bot.py`.
+5. Enable it with `sudo systemctl enable --now assignment-notifier` and verify logs with:
+   - `journalctl -u assignment-notifier -n 100 --no-pager`
 
 ## Common Issues
 
