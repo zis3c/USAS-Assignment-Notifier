@@ -1,12 +1,13 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 
-def main_menu() -> ReplyKeyboardMarkup:
+def main_menu(is_registered: bool = False) -> ReplyKeyboardMarkup:
     """Standard user menu."""
+    account_action = "Logout" if is_registered else "Register"
     return ReplyKeyboardMarkup(
         [
             ["Check Now", "Status"],
-            ["Register", "Logout"],
+            [account_action],
             ["Help"],
         ],
         resize_keyboard=True,

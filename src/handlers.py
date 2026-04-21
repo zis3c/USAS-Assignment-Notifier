@@ -39,6 +39,20 @@ CONFIRM_UNREGISTER = 10
 def _is_cancel(text: str) -> bool:
     return text.strip() in ("Cancel", "/cancel", "cancel")
 
+
+async def _is_registered_chat(chat_id: str) -> bool:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(User.id).where(User.chat_id == chat_id, User.active.is_(True))
+        )
+        return result.scalars().first() is not None
+
+
+async def _main_menu_for_update(update: Update):
+    chat_id = str(update.effective_chat.id)
+    return keyboards.main_menu(await _is_registered_chat(chat_id))
+
+
 async def check_maintenance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Checks if the bot is in maintenance mode and sends a message if it is."""
     async with AsyncSessionLocal() as session:
@@ -66,7 +80,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         strings.WELCOME,
         parse_mode="Markdown",
-        reply_markup=keyboards.main_menu(),
+        reply_markup=await _main_menu_for_update(update),
     )
 
 
@@ -108,7 +122,7 @@ async def help_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await update.message.reply_text(
         strings.HELP_DETAIL,
         parse_mode="Markdown",
-        reply_markup=keyboards.main_menu(),
+        reply_markup=await _main_menu_for_update(update),
     )
 
 
@@ -125,7 +139,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not user or not user.active:
         await update.message.reply_text(
-            strings.NOT_REGISTERED, parse_mode="Markdown", reply_markup=keyboards.main_menu()
+            strings.NOT_REGISTERED, parse_mode="Markdown", reply_markup=keyboards.main_menu(False)
         )
         return
 
@@ -140,13 +154,13 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(
             strings.STATUS_OK.format(lms_name=lms_name, matric=matric, last_checked=local_time, tz=config.LOCAL_TZ.key),
             parse_mode="Markdown",
-            reply_markup=keyboards.main_menu(),
+            reply_markup=keyboards.main_menu(True),
         )
     else:
         await update.message.reply_text(
             strings.STATUS_NEVER_CHECKED.format(lms_name=lms_name, matric=matric),
             parse_mode="Markdown",
-            reply_markup=keyboards.main_menu(),
+            reply_markup=keyboards.main_menu(True),
         )
 
 
@@ -178,7 +192,7 @@ async def check_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not user_id:
         await update.message.reply_text(
-            strings.NOT_REGISTERED, parse_mode="Markdown", reply_markup=keyboards.main_menu()
+            strings.NOT_REGISTERED, parse_mode="Markdown", reply_markup=keyboards.main_menu(False)
         )
         return
 
@@ -207,7 +221,7 @@ async def check_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         msg = strings.CHECK_PENDING_ONLY.format(count=result.pending_count)
     else:
         msg = strings.CHECK_NO_NEW
-    await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=keyboards.main_menu())
+    await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=keyboards.main_menu(True))
     
     # Log the result
     log_activity(
@@ -325,7 +339,11 @@ async def receive_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         except Exception as e:
             logger.warning("Validation failed for %s: %s", student_id, e)
             await waiting.delete()
-            await update.message.reply_text(strings.LOGIN_FAILED, parse_mode="Markdown", reply_markup=keyboards.main_menu())
+            await update.message.reply_text(
+                strings.LOGIN_FAILED,
+                parse_mode="Markdown",
+                reply_markup=await _main_menu_for_update(update),
+            )
             return ConversationHandler.END
 
         await waiting.delete()
@@ -352,7 +370,7 @@ async def receive_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     reply_tmpl = strings.ALREADY_REGISTERED if is_update else strings.REGISTERED_OK
     reply = reply_tmpl.format(name=parsed_name or "Student")
-    await update.message.reply_text(reply, parse_mode="Markdown", reply_markup=keyboards.main_menu())
+    await update.message.reply_text(reply, parse_mode="Markdown", reply_markup=keyboards.main_menu(True))
     return ConversationHandler.END
 
 
@@ -361,7 +379,7 @@ async def _cancel_registration(update: Update, context: ContextTypes.DEFAULT_TYP
     await update.message.reply_text(
         strings.REGISTER_CANCELLED,
         parse_mode="Markdown",
-        reply_markup=keyboards.main_menu(),
+        reply_markup=await _main_menu_for_update(update),
     )
     return ConversationHandler.END
 
@@ -376,7 +394,7 @@ async def unregister_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     if not user or not user.active:
         await update.message.reply_text(
-            strings.NOT_REGISTERED, parse_mode="Markdown", reply_markup=keyboards.main_menu()
+            strings.NOT_REGISTERED, parse_mode="Markdown", reply_markup=keyboards.main_menu(False)
         )
         return ConversationHandler.END
 
@@ -402,13 +420,13 @@ async def unregister_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 user.active = False
                 await session.commit()
         await update.message.reply_text(
-            strings.UNREGISTERED_OK, parse_mode="Markdown", reply_markup=keyboards.main_menu()
+            strings.UNREGISTERED_OK, parse_mode="Markdown", reply_markup=keyboards.main_menu(False)
         )
     else:
         await update.message.reply_text(
             strings.UNREGISTER_CANCELLED,
             parse_mode="Markdown",
-            reply_markup=keyboards.main_menu()
+            reply_markup=keyboards.main_menu(True)
         )
 
     return ConversationHandler.END
