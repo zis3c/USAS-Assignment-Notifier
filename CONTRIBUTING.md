@@ -37,7 +37,7 @@ Thanks for helping improve **USAS Assignment Notifier**.
   - `fix/<short-name>`
   - `docs/<short-name>`
 - Use clear commit messages, for example:
-  - `feat: add timetable parser fallback`
+  - `feat: add assignment parser fallback`
   - `fix: stop duplicate pending reminders`
   - `docs: update installation guide`
 

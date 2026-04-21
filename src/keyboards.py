@@ -6,7 +6,7 @@ def main_menu() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
             ["Check Now", "Status"],
-            ["Timetable", "Register"],
+            ["Register"],
             ["Help", "Logout"],
         ],
         resize_keyboard=True,

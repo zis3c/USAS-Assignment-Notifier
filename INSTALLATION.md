@@ -87,7 +87,6 @@ Or on Windows:
 - Send `/start` to your bot.
 - Complete `/register`.
 - Try `/check`.
-- Try `/timetable`.
 - Confirm scheduler logs show polling started.
 
 ## Docker (Optional)

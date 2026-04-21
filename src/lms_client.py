@@ -15,26 +15,6 @@ from src import config
 
 logger = logging.getLogger(__name__)
 
-DAY_ORDER = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
-DEFAULT_TIMETABLE_SLOTS: List[Tuple[str, str]] = [
-    ("08 AM", "09 AM"),
-    ("09 AM", "10 AM"),
-    ("10 AM", "11 AM"),
-    ("11 AM", "12 PM"),
-    ("12 PM", "01 PM"),
-    ("01 PM", "02 PM"),
-    ("02 PM", "03 PM"),
-    ("03 PM", "04 PM"),
-    ("04 PM", "05 PM"),
-    ("05 PM", "06 PM"),
-    ("06 PM", "07 PM"),
-    ("07 PM", "08 PM"),
-    ("08 PM", "09 PM"),
-    ("09 PM", "10 PM"),
-    ("10 PM", "11 PM"),
-    ("11 PM", "12 AM"),
-]
-
 SUBMISSION_STATUS_LABEL_HINTS = (
     "submission status",
     "status penghantaran",
@@ -267,165 +247,6 @@ def extract_course_name_map(html: str) -> Dict[str, str]:
     return mapping
 
 
-def _format_course_name(value: str) -> str:
-    clean = " ".join((value or "").split()).strip()
-    if not clean:
-        return clean
-
-    words = clean.split()
-    if all(word.isupper() for word in words):
-        normalized: List[str] = []
-        for word in words:
-            # Keep short acronyms uppercase (AI, IT, etc.).
-            if len(word) <= 3:
-                normalized.append(word)
-            else:
-                normalized.append(word.capitalize())
-        return " ".join(normalized)
-    return clean
-
-
-def _parse_timetable_slot(text: str) -> Optional[Tuple[str, str]]:
-    lines = [line.strip().upper() for line in text.splitlines() if line.strip()]
-    if len(lines) >= 2:
-        return lines[0], lines[1]
-    if len(lines) == 1:
-        # Fallback pattern if HTML line breaks were flattened.
-        match = re.search(
-            r"(\d{1,2}\s*(?:AM|PM))\s+(\d{1,2}\s*(?:AM|PM))",
-            lines[0],
-            flags=re.IGNORECASE,
-        )
-        if match:
-            return match.group(1).upper(), match.group(2).upper()
-    return None
-
-
-def parse_timetable_from_html(html: str) -> Tuple[List[Dict[str, Any]], List[Tuple[str, str]]]:
-    """Parse dashboard timetable block into structured weekly entries."""
-    soup = BeautifulSoup(html, "html.parser")
-    container = soup.select_one("div.innertimetable")
-    if not container:
-        return [], []
-
-    nodes = [child for child in container.children if getattr(child, "name", None)]
-    if not nodes:
-        return [], []
-
-    # Header row: DAY + 16 one-hour slots, then a <br>.
-    idx = 0
-    header_cells: List[Any] = []
-    while idx < len(nodes) and nodes[idx].name != "br":
-        header_cells.append(nodes[idx])
-        idx += 1
-
-    time_slots: List[Tuple[str, str]] = []
-    for cell in header_cells[1:]:
-        classes = cell.get("class", [])
-        if "course_time" not in classes:
-            continue
-        parsed = _parse_timetable_slot(cell.get_text("\n", strip=True))
-        if parsed:
-            time_slots.append(parsed)
-    if not time_slots:
-        time_slots = list(DEFAULT_TIMETABLE_SLOTS)
-
-    if idx < len(nodes) and nodes[idx].name == "br":
-        idx += 1
-
-    course_map = extract_course_name_map(html)
-    entries: List[Dict[str, Any]] = []
-    total_slots = len(time_slots)
-
-    while idx < len(nodes):
-        row_start = nodes[idx]
-        if row_start.name != "div":
-            idx += 1
-            continue
-        row_classes = row_start.get("class", [])
-        if "course_time" not in row_classes:
-            idx += 1
-            continue
-
-        day_text = " ".join(row_start.get_text(" ", strip=True).split()).upper()
-        if day_text not in DAY_ORDER:
-            idx += 1
-            continue
-        day = day_text
-        idx += 1
-        placeholder_count = 0
-
-        while idx < len(nodes) and nodes[idx].name != "br":
-            node = nodes[idx]
-            classes = node.get("class", [])
-            if "course_time" in classes:
-                placeholder_count += 1
-            elif "coursenametb" in classes:
-                style = node.get("style", "") or ""
-                match = re.search(r"width\s*:\s*(\d+)px", style, flags=re.IGNORECASE)
-                width_px = int(match.group(1)) if match else 55
-                duration_slots = max(1, round((width_px + 7) / 62))
-
-                start_slot = min(placeholder_count, max(0, total_slots - 1))
-                remaining = max(1, total_slots - start_slot)
-                duration_slots = min(duration_slots, remaining)
-
-                parts = [
-                    " ".join(part.split())
-                    for part in node.get_text("\n", strip=True).splitlines()
-                    if part.strip()
-                ]
-                subject_raw = parts[0] if parts else "Unknown"
-                subject_code = _extract_subject_code(subject_raw) or _extract_subject_code(" ".join(parts)) or "Unknown"
-                mapped_name = course_map.get(subject_code, subject_code)
-                subject_name = _format_course_name(mapped_name)
-
-                group: Optional[str] = None
-                venue: Optional[str] = None
-                if len(parts) >= 2:
-                    second = parts[1]
-                    if second.startswith("(") and second.endswith(")"):
-                        group = second[1:-1].strip()
-                    else:
-                        group = second
-                if len(parts) >= 3:
-                    venue = parts[2]
-
-                lecturer_title = node.get("title", "") or ""
-                lecturer = re.sub(
-                    r"^\s*LECTURER\s*:\s*",
-                    "",
-                    lecturer_title,
-                    flags=re.IGNORECASE,
-                ).strip() or None
-
-                entries.append(
-                    {
-                        "day": day,
-                        "start_slot": start_slot,
-                        "duration_slots": duration_slots,
-                        "subject_code": subject_code,
-                        "subject": subject_name,
-                        "group": group,
-                        "venue": venue,
-                        "lecturer": lecturer,
-                    }
-                )
-            idx += 1
-
-        if idx < len(nodes) and nodes[idx].name == "br":
-            idx += 1
-
-    entries.sort(
-        key=lambda item: (
-            DAY_ORDER.index(item["day"]) if item["day"] in DAY_ORDER else 99,
-            item.get("start_slot", 0),
-            item.get("subject", ""),
-        )
-    )
-    return entries, time_slots
-
-
 def _extract_subject(raw: Dict[str, Any], title: str) -> Optional[str]:
     subject_full: Optional[str] = None
     subject_code: Optional[str] = None
@@ -580,14 +401,6 @@ class FetchResult:
     dashboard_html: Optional[str] = None
 
 
-@dataclass
-class TimetableResult:
-    entries: List[Dict[str, Any]]
-    time_slots: List[Tuple[str, str]]
-    session_cookie: Optional[str]
-    dashboard_html: Optional[str] = None
-
-
 class LMSClient:
     def __init__(self, student_id: str, password: str, session_cookie: Optional[str]):
         self.student_id = student_id
@@ -625,31 +438,6 @@ class LMSClient:
 
             cookie = self._extract_session_cookie(session)
             return FetchResult(events=events, session_cookie=cookie, dashboard_html=html)
-
-    async def fetch_timetable(self) -> TimetableResult:
-        """Fetch the LMS dashboard and parse class timetable data."""
-        jar = aiohttp.CookieJar(unsafe=True)
-        if self.session_cookie:
-            jar.update_cookies(
-                {"MoodleSession": self.session_cookie},
-                response_url=URL(config.LMS_BASE_URL),
-            )
-
-        timeout = aiohttp.ClientTimeout(total=60)
-        async with aiohttp.ClientSession(
-            cookie_jar=jar,
-            connector=aiohttp.TCPConnector(ssl=False),
-            timeout=timeout,
-        ) as session:
-            html, _ = await self._get_dashboard_html(session)
-            entries, time_slots = parse_timetable_from_html(html)
-            cookie = self._extract_session_cookie(session)
-            return TimetableResult(
-                entries=entries,
-                time_slots=time_slots,
-                session_cookie=cookie,
-                dashboard_html=html,
-            )
 
     async def fetch_submission_statuses(
         self, assignment_links: Iterable[str]

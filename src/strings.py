@@ -13,7 +13,6 @@ HELP = (
     "This service monitors the *USAS LMS* for *new assignments* and notifies you *instantly*.\n\n"
     "*Register* - Link LMS account\n"
     "*Check Now* - Scan tasks now\n"
-    "*Timetable* - Show class schedule wallpaper\n"
     "*Status* - View account info\n"
     "*Logout* - Remove your data\n\n"
     "Made by *zis3c* 🔥"
@@ -22,7 +21,7 @@ HELP = (
 HELP_DETAIL = (
     "*How it works?*\n\n"
     "After you register, I check your USAS LMS automatically every hour, and if I find a new assignment, quiz, or deadline update, I send it to you right away.\n\n"
-    "I also send reminder messages when your assignment is 3 days, 2 days, and within 24 hours before the deadline, you can tap *Check Now* anytime for an instant scan, and if you want your latest class schedule, just tap *Timetable* to generate the timetable image from LMS.\n\n"
+    "I also send reminder messages when your assignment is 3 days, 2 days, and within 24 hours before the deadline, and you can tap *Check Now* anytime for an instant scan.\n\n"
     "If you face any problems, please contact @STEMUSAS."
 )
 
@@ -277,25 +276,3 @@ RATE_LIMIT_ADMIN = "⏳ *Cooling down...*\n\nThe global poll was recently trigge
 
 SOMETHING_WENT_WRONG = "*⚠️ Something went wrong.* Please try again later."
 
-# -- Timetable ---------------------------------------------------------------
-
-TIMETABLE_LOADING = (
-    "*Preparing your timetable...*\n\n"
-    "Fetching latest class schedule from LMS."
-)
-
-TIMETABLE_EMPTY = (
-    "*No timetable found.*\n\n"
-    "I could not find the class timetable block on your LMS dashboard right now."
-)
-
-TIMETABLE_TEMP_ERROR = (
-    "*Unable to generate timetable right now.*\n\n"
-    "Please try again in a moment."
-)
-
-TIMETABLE_IMAGE_CAPTION = (
-    "<b>USAS Class Schedule</b>\n"
-    "Name: <b>{name}</b>\n"
-    "Generated: <code>{generated}</code>"
-)

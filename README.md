@@ -8,7 +8,7 @@
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 ![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)
 
-A secure async Telegram bot for USAS students that monitors LMS assignments, sends deadline reminders (3 days, 2 days, within 24 hours), and generates a phone-ready timetable wallpaper directly from LMS.
+A secure async Telegram bot for USAS students that monitors LMS assignments and sends deadline reminders (3 days, 2 days, within 24 hours).
 
 > [!NOTE]
 > **Security-first design**: LMS credentials and session cookies are encrypted with Fernet before storage, and plaintext credentials are only used in-memory during login.
@@ -26,9 +26,6 @@ A secure async Telegram bot for USAS students that monitors LMS assignments, sen
   - Deduped notifications (no repeated stage spam).
   - Real submission-status check from assignment pages (reminders stop once submitted).
 - Manual scan via `/check` (or **Check Now** button).
-- Timetable factory:
-  - Fetches timetable from LMS dashboard HTML.
-  - Generates high-resolution portrait class schedule image for lock/home screen use.
 - Admin tools:
   - User stats/list, poll-all-now, maintenance mode, ban/unban, DB backup.
   - Daily activity log report auto-send.
@@ -148,8 +145,6 @@ USAS-Assignment-Notifier/
 |- requirements.txt          # Python dependencies
 |- Dockerfile                # Container build config
 |- .env.example              # Environment template
-|- assets/
-|  `- fonts/                 # Timetable renderer fonts
 |- data/                     # SQLite database (local)
 |- logs/                     # Runtime and activity logs
 `- src/
@@ -159,8 +154,7 @@ USAS-Assignment-Notifier/
    |- models.py              # ORM models (users, user_events, settings)
    |- handlers.py            # Telegram command/button/conversation handlers
    |- jobs.py                # Polling jobs, reminders, daily logs
-   |- lms_client.py          # LMS login/session/events/timetable/submission checks
-   |- timetable_renderer.py  # Portrait timetable image rendering (Pillow)
+   |- lms_client.py          # LMS login/session/events/submission checks
    |- keyboards.py           # Reply/inline keyboard layouts
    |- strings.py             # User-facing text constants
    |- sheets_client.py       # Google Sheets STEM membership verification
@@ -175,7 +169,6 @@ USAS-Assignment-Notifier/
 | `/register` | Link LMS account (STEM-verified flow) |
 | `/status` | Show linked account and last scan |
 | `/check` | Trigger immediate LMS scan |
-| `/timetable` | Generate class schedule image from LMS |
 | `/help` | Show usage guide |
 | `/logout` | Logout and disable account |
 | `/unregister` | Alias of `/logout` |
@@ -198,7 +191,6 @@ USAS-Assignment-Notifier/
    - Countdown reminders (3d/2d/within 24h)
    - Manual pending reminders on **Check Now**
 6. Before sending pending reminders, bot checks assignment page status to skip already submitted work.
-7. `/timetable` fetches LMS timetable HTML and returns a portrait wallpaper-style schedule image.
 
 ## Troubleshooting
 

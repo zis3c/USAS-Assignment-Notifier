@@ -36,7 +36,6 @@ from src.handlers import (
     register_conversation,
     start,
     status,
-    timetable,
     unregister_conversation,
     check_banned,
     check_maintenance,
@@ -99,7 +98,6 @@ async def configure_runtime(app: Application) -> None:
                 BotCommand("register", "Link your LMS account"),
                 BotCommand("status", "View your account status"),
                 BotCommand("check", "Check for new assignments now"),
-                BotCommand("timetable", "Show your class schedule"),
                 BotCommand("help", "How to use this bot"),
                 BotCommand("logout", "Logout / Remove account"),
             ]
@@ -175,7 +173,7 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     
     # --- Activity Logging (Sensitive Data Masking) ---
     safe_buttons = [
-        "Check Now", "Status", "Timetable", "Help", "Register", "Logout", "Main Menu",
+        "Check Now", "Status", "Help", "Register", "Logout", "Main Menu",
         "User Stats", "User List", "Poll All Now", "View Logs", "Broadcast",
         "Find User", "Ban/Unban", "Backup DB", "Maint. Mode", "Confirm Sending", "Cancel"
     ]
@@ -248,14 +246,13 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("check", check_now))
-    app.add_handler(CommandHandler("timetable", timetable))
     app.add_handler(CommandHandler("logs", admin_logs))
     app.add_handler(CommandHandler("admin", admin_panel))
 
     # Keyboard button taps
     app.add_handler(
         MessageHandler(
-            filters.Regex(r"^(Check Now|Status|Timetable|Help|Register|Logout|Main Menu|User Stats|User List|Poll All Now|View Logs|Broadcast|Find User|Ban/Unban|Backup DB|Maint. Mode|Server Performance)$"),
+            filters.Regex(r"^(Check Now|Status|Help|Register|Logout|Main Menu|User Stats|User List|Poll All Now|View Logs|Broadcast|Find User|Ban/Unban|Backup DB|Maint. Mode|Server Performance)$"),
             button_router,
         )
     )
