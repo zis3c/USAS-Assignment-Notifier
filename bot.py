@@ -26,6 +26,7 @@ from src import config
 from src.database import init_db
 from src.handlers import (
     admin_handle_matric_actions,
+    admin_health,
     admin_logs,
     admin_panel,
     admin_toggle_maintenance,
@@ -100,6 +101,7 @@ async def configure_runtime(app: Application) -> None:
                 BotCommand("check", "Check for new assignments now"),
                 BotCommand("help", "How to use this bot"),
                 BotCommand("logout", "Logout / Remove account"),
+                BotCommand("health", "Admin health summary"),
             ]
         )
     except Exception as e:
@@ -247,6 +249,7 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("check", check_now))
     app.add_handler(CommandHandler("logs", admin_logs))
+    app.add_handler(CommandHandler("health", admin_health))
     app.add_handler(CommandHandler("admin", admin_panel))
 
     # Keyboard button taps

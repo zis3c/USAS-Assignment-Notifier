@@ -17,7 +17,7 @@ A secure async Telegram bot for USAS students that monitors LMS assignments and 
 
 - Async event-driven polling with `python-telegram-bot`, `asyncio`, and `aiohttp`.
 - Secure LMS account linking:
-  - STEM membership validation via Google Sheets.
+  - LMS credential validation during registration.
   - Encrypted credential storage (`FERNET_KEY`).
   - Session cookie reuse with self-healing re-login.
 - Smart assignment notifications:
@@ -96,10 +96,6 @@ Database:
 - `DB_PATH` - SQLite path for local mode
 - `DATABASE_URL` - Optional PostgreSQL URL (legacy/advanced use; default deployment uses SQLite)
 
-STEM verification (required for registration flow):
-- `SHEET_ID`
-- `GOOGLE_CREDENTIALS` (JSON string) or `service_account.json` file
-
 Server runtime:
 - `PORT` - Local health endpoint port (set `10001` in DigitalOcean setup)
 - `PUBLIC_BASE_URL` - Optional public URL for health self-ping (leave empty on DigitalOcean polling mode)
@@ -109,7 +105,7 @@ Server runtime:
 This project is currently deployed on a DigitalOcean Droplet using polling + `systemd`.
 
 1. Clone the repo on the droplet and install dependencies.
-2. Copy `.env` (without committing secrets) and place `service_account.json` in project root.
+2. Copy `.env` (without committing secrets).
 3. Keep `PUBLIC_BASE_URL` empty for polling mode.
 4. Run with a systemd service, for example:
    - `WorkingDirectory=/opt/assignment-notifier`
@@ -157,8 +153,7 @@ USAS-Assignment-Notifier/
    |- lms_client.py          # LMS login/session/events/submission checks
    |- keyboards.py           # Reply/inline keyboard layouts
    |- strings.py             # User-facing text constants
-   |- sheets_client.py       # Google Sheets STEM membership verification
-   `- logging_utils.py       # Activity logging
+      `- logging_utils.py       # Activity logging
 ```
 
 ## Commands
@@ -166,7 +161,7 @@ USAS-Assignment-Notifier/
 | Command | Description |
 |:--------|:------------|
 | `/start` | Open main menu |
-| `/register` | Link LMS account (STEM-verified flow) |
+| `/register` | Link LMS account |
 | `/status` | Show linked account and last scan |
 | `/check` | Trigger immediate LMS scan |
 | `/help` | Show usage guide |
@@ -182,8 +177,8 @@ USAS-Assignment-Notifier/
 
 ## How It Works
 
-1. User registers with STEM membership ID, matric number, and LMS password.
-2. Bot validates membership from Google Sheets, then verifies LMS login.
+1. User registers with matric number and LMS password.
+2. Bot verifies LMS login before saving credentials.
 3. Credentials are encrypted and stored; session cookie is reused when possible.
 4. Hourly scheduler polls LMS events for active users.
 5. Bot sends:
@@ -197,8 +192,6 @@ USAS-Assignment-Notifier/
 - **No auto daily logs**
   - Ensure `ADMIN_ID` is set correctly.
   - Ensure `ACTIVITY_LOG_PATH` exists and has content.
-- **Registration fails at STEM check**
-  - Verify `SHEET_ID` and `GOOGLE_CREDENTIALS` (or `service_account.json`).
 - **LMS login fails**
   - Recheck matric/password and LMS accessibility.
 - **Windows dependency issues**
@@ -213,4 +206,5 @@ USAS-Assignment-Notifier/
 - [LICENSE](LICENSE)
 
 <center>Built with 🔥 by <b>@zis3c</b></center>
+
 

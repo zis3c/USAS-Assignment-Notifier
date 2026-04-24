@@ -8,7 +8,6 @@ This guide covers local setup and deployment basics for **USAS Assignment Notifi
 - `pip`
 - Telegram bot token from [@BotFather](https://t.me/BotFather)
 - A valid `FERNET_KEY`
-- (Optional, for membership verification) Google Sheet credentials
 
 ## 1) Clone Project
 
@@ -65,11 +64,6 @@ Set at minimum in `.env`:
 - `LMS_BASE_URL` (default is already provided)
 - `ADMIN_ID` (required for daily log auto-send)
 
-If using STEM membership verification, also set:
-
-- `SHEET_ID`
-- `GOOGLE_CREDENTIALS` or provide `service_account.json`
-
 ## 5) Run Bot
 
 ```bash
@@ -122,4 +116,5 @@ docker run --env-file .env -p 10000:10000 usas-due-bot
 - Daily logs not sent: verify `ADMIN_ID` is correct.
 - LMS login failures: verify matric/password and LMS availability.
 - Windows package build issues: use Python 3.10/3.11 virtual environment.
+
 

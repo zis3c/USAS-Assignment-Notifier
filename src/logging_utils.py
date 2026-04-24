@@ -12,7 +12,7 @@ def log_activity(user_name: str, user_id: int, action: str, details: str, role: 
     """
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Format: [2026-03-26 11:00:00] USER: Radzi (123456789) | ACTION: KEYBOARD_CLICK | Button: BTN_CHECK (Check Membership)
+    # Format: [2026-03-26 11:00:00] USER: Radzi (123456789) | ACTION: KEYBOARD_CLICK | Button: BTN_CHECK (Check Now)
     # Handle role in name if needed, but requested format uses "USER: Name (ID)"
     log_entry = f"[{timestamp}] USER: {user_name} ({user_id}) | ACTION: {action} | {details}\n"
     

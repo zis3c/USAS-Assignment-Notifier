@@ -140,9 +140,15 @@ def _format_title(title: str) -> str:
 async def poll_all_users(context) -> None:
     """Job: poll every active user for new assignments."""
     start_time = datetime.now()
+    bot_data = context.application.bot_data
+    health_stats = bot_data.setdefault("health_stats", {})
+    health_stats["last_poll_at"] = datetime.now(timezone.utc)
+
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(User.id).where(User.active.is_(True)))
         user_ids = result.scalars().all()
+
+    health_stats["last_active_user_count"] = len(user_ids)
 
     if not user_ids:
         return
@@ -150,14 +156,27 @@ async def poll_all_users(context) -> None:
     sem = asyncio.Semaphore(config.MAX_CONCURRENCY)
     bot = context.application.bot
 
-    async def run_one(uid: int) -> None:
+    async def run_one(uid: int) -> PollResult:
         async with sem:
             try:
-                await poll_user_id(uid, bot)
+                return await poll_user_id(uid, bot)
             except Exception as exc:
                 logger.exception("Polling failed for user %s: %s", uid, exc)
+                return PollResult(error="internal_error")
 
-    await asyncio.gather(*(run_one(uid) for uid in user_ids))
+    results = await asyncio.gather(*(run_one(uid) for uid in user_ids))
+    failed_count = sum(1 for result in results if result.error)
+    success_count = len(results) - failed_count
+
+    health_stats["last_failed_user_count"] = failed_count
+    health_stats["last_success_user_count"] = success_count
+
+    # "Fail streak" means consecutive poll cycles with at least one user failure.
+    if failed_count == 0:
+        health_stats["lms_fail_streak"] = 0
+        health_stats["last_successful_poll_at"] = datetime.now(timezone.utc)
+    else:
+        health_stats["lms_fail_streak"] = int(health_stats.get("lms_fail_streak", 0)) + 1
     
     duration = (datetime.now() - start_time).total_seconds()
     logger.info("📊  Poll cycle completed in %.2fs for %d users.", duration, len(user_ids))

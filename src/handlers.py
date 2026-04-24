@@ -25,13 +25,12 @@ from src.database import AsyncSessionLocal
 from src.jobs import poll_user_id
 from src.lms_client import LMSAuthenticationError, LMSClient, extract_user_name, extract_sesskey
 from src.models import User, SystemSettings
-from src.sheets_client import sheets_client
 from src.logging_utils import log_activity
 
 logger = logging.getLogger(__name__)
 
 # ── Conversation states ───────────────────────────────────────────────────────
-ASK_MEMBERSHIP_ID, ASK_STUDENT_ID, ASK_PASSWORD = range(3)
+ASK_STUDENT_ID, ASK_PASSWORD = range(2)
 CONFIRM_UNREGISTER = 10
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -227,7 +226,7 @@ async def check_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     log_activity(
         update.effective_user.first_name or "Unknown",
         update.effective_user.id,
-        "CHECK_MEMBERSHIP",
+        "CHECK_MANUAL",
         f"Matric: {user_id} | New: {result.new_count} | Pending: {result.pending_count} | Reminder: {result.reminder_count}"
     )
 
@@ -244,29 +243,7 @@ async def register_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             return ConversationHandler.END
 
     await update.message.reply_text(
-        strings.PROMPT_MEMBERSHIP_ID,
-        parse_mode="Markdown",
-        reply_markup=keyboards.cancel_menu(),
-    )
-    return ASK_MEMBERSHIP_ID
-
-
-async def receive_membership_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    text = update.message.text.strip()
-    if _is_cancel(text):
-        return await _cancel_registration(update, context)
-
-    # Verify ID in Sheets (Async)
-    matric_expected, error = await sheets_client.lookup_membership(text)
-    if error:
-        await update.message.reply_text(f"⚠️ {error}", parse_mode="Markdown")
-        return ASK_MEMBERSHIP_ID
-
-    context.user_data["membership_id"] = text
-    context.user_data["matric_expected"] = matric_expected
-
-    await update.message.reply_text(
-        strings.PROMPT_STUDENT_ID.format(membership_id=text),
+        strings.PROMPT_STUDENT_ID,
         parse_mode="Markdown",
         reply_markup=keyboards.cancel_menu(),
     )
@@ -278,23 +255,13 @@ async def receive_student_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if _is_cancel(text):
         return await _cancel_registration(update, context)
 
-    # Verification Match
-    expected = context.user_data.get("matric_expected", "")
-    if text != expected:
-        await update.message.reply_text(
-            strings.ERR_MEMBERSHIP_MATRIC_MISMATCH.format(entered=text),
-            parse_mode="Markdown"
-        )
-        return ASK_STUDENT_ID
-
     context.user_data["student_id"] = text
-    membership_id = context.user_data.get("membership_id", "Unknown")
-    
+
     # Set flag to mask next message (password) in activity logs
     context.user_data["is_typing_password"] = True
 
     await update.message.reply_text(
-        strings.PROMPT_PASSWORD.format(membership_id=membership_id, student_id=text),
+        strings.PROMPT_PASSWORD.format(student_id=text),
         parse_mode="Markdown",
         reply_markup=keyboards.cancel_menu(),
     )
@@ -522,6 +489,8 @@ async def admin_poll_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     asyncio.create_task(poll_all_users(context))
 
 
+
+
 async def admin_logs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send current log file to admin."""
     if update.effective_user.id != config.ADMIN_ID:
@@ -529,7 +498,7 @@ async def admin_logs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     import os
     if not os.path.exists(config.ACTIVITY_LOG_PATH):
-        await update.message.reply_text("📂 Activity log is empty or missing.")
+        await update.message.reply_text("Activity log is empty or missing.")
         return
 
     try:
@@ -537,13 +506,40 @@ async def admin_logs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             await update.message.reply_document(
                 document=f,
                 filename=f"activity_{datetime.now().strftime('%Y-%m-%d')}.txt",
-                caption="📜 *Activity Logs*",
+                caption="*Activity Logs*",
                 parse_mode="Markdown"
             )
     except Exception as e:
         logger.error("Failed to send logs: %s", e)
-        await update.message.reply_text("⚠️ Failed to send log file.")
+        await update.message.reply_text("Failed to send log file.")
 
+async def admin_health(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show polling health summary for admin."""
+    if update.effective_user.id != config.ADMIN_ID:
+        return
+
+    async with AsyncSessionLocal() as session:
+        active_result = await session.execute(select(User.id).where(User.active.is_(True)))
+        active_users = len(active_result.scalars().all())
+
+    stats = context.application.bot_data.get("health_stats", {})
+    fail_streak = int(stats.get("lms_fail_streak", 0))
+    last_success = stats.get("last_successful_poll_at")
+
+    if isinstance(last_success, datetime):
+        local_success = last_success.astimezone(config.LOCAL_TZ).strftime("%d %b %Y, %I:%M:%S %p")
+    else:
+        local_success = "Never"
+
+    await update.message.reply_text(
+        strings.ADMIN_HEALTH.format(
+            last_successful_poll=local_success,
+            fail_streak=fail_streak,
+            active_users=active_users,
+        ),
+        parse_mode="Markdown",
+        reply_markup=keyboards.admin_menu(),
+    )
 
 # ── Keyboard button router ────────────────────────────────────────────────────
 
@@ -822,10 +818,6 @@ def register_conversation() -> ConversationHandler:
             MessageHandler(filters.Regex(r"^Register$"), register_start),
         ],
         states={
-            ASK_MEMBERSHIP_ID: [
-                MessageHandler(filters.TEXT & ~cancel_filter, receive_membership_id),
-                MessageHandler(cancel_filter, _cancel_registration),
-            ],
             ASK_STUDENT_ID: [
                 MessageHandler(filters.TEXT & ~cancel_filter, receive_student_id),
                 MessageHandler(cancel_filter, _cancel_registration),
@@ -855,3 +847,5 @@ def unregister_conversation() -> ConversationHandler:
             MessageHandler(filters.COMMAND, unregister_confirm),
         ],
     )
+
+

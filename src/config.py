@@ -34,10 +34,6 @@ USER_CHECK_INTERVAL = 300  # 5 minutes in seconds
 ADMIN_POLL_INTERVAL = 900  # 15 minutes in seconds
 GLOBAL_ANTI_SPAM_INTERVAL = 1.0  # 1 second between any interaction
 
-# ── Google Sheets (STEM DB) ───────────────────────────────────────────────────
-SHEET_ID: str = os.getenv("SHEET_ID", "")
-GOOGLE_CREDENTIALS: str = os.getenv("GOOGLE_CREDENTIALS", "") # JSON string
-
 # ── Time & DB ─────────────────────────────────────────────────────────────────
 LOCAL_TZ = ZoneInfo("Asia/Kuala_Lumpur")
 DB_PATH: str = os.getenv("DB_PATH", "data/lms_notifier.db")
@@ -47,3 +43,4 @@ DATABASE_URL: str = os.getenv("DATABASE_URL", "") # Optional PostgreSQL URL (asy
 PORT: int = int(os.getenv("PORT", "10000"))
 PUBLIC_BASE_URL: str = os.getenv("PUBLIC_BASE_URL", "").rstrip("/") # e.g. https://bot.example.com
 SELF_PING_INTERVAL: int = 14 * 60 # 14 minutes
+

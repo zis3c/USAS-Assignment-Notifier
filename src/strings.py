@@ -22,49 +22,28 @@ HELP_DETAIL = (
     "*How it works?*\n\n"
     "After you register, I check your USAS LMS automatically every hour, and if I find a new assignment, quiz, or deadline update, I send it to you right away.\n\n"
     "I also send reminder messages when your assignment is 3 days, 2 days, and within 24 hours before the deadline, and you can tap *Check Now* anytime for an instant scan.\n\n"
-    "If you face any problems, please contact @STEMUSAS."
+    "If you face any problems, please contact the project maintainer."
 )
 
 # ── Registration Flow ─────────────────────────────────────────────────────────
 
-PROMPT_MEMBERSHIP_ID = (
-    "Step 1/3\n\n"
-    "Please enter your *STEM ID*:\n"
-    "(Example: `STEM(25/26)0016`)\n\n"
-    "Get it in @stemusasbot"
-)
-
 PROMPT_STUDENT_ID = (
-    "ID: `{membership_id}`\n\n"
-    "Step 2/3\n"
+    "Step 1/2\n\n"
     "Please type your *Matric Number*:\n"
     "(Example: `I24067510`)"
 )
 
 PROMPT_PASSWORD = (
-    "ID: `{membership_id}`\n"
     "Matric: `{student_id}`\n\n"
-    "Step 3/3\n"
+    "Step 2/2\n"
     "Please enter your *LMS Password*:"
 )
 
 # -- Errors & Validation -------------------------------------------------------
 
-ERR_MEMBERSHIP_NOT_FOUND = (
-    "*❌ Membership Not Found*\n\n"
-    "I couldn't find that *ID* in our records. Please ensure you have joined *STEM* to use this bot.\n\n"
-    "Contact @STEMUSAS if you think this is an error."
-)
+REGISTERED_OK = "*Registration successful*, *{name}*!\n\nI'm now *monitoring* your *assignments*. Happy studying!"
 
-ERR_MEMBERSHIP_MATRIC_MISMATCH = (
-    "*❌ Matric Mismatch*\n\n"
-    "The *Matric ID* you entered (*{entered}*) does *not match* our records for this membership.\n\n"
-    "Please *try again* or contact @STEMUSAS."
-)
-
-REGISTERED_OK = "*✅ Registration successful*, *{name}*!\n\nI'm now *monitoring* your *assignments*. Happy studying! 🚀"
-
-ALREADY_REGISTERED = "*Welcome back*, *{name}*!\n\n*Everything’s up to date*. I’ll keep an eye on your *assignments* for you 😉"
+ALREADY_REGISTERED = "*Welcome back*, *{name}*!\n\n*Everything is up to date.* I will check your LMS every *1 hour* and keep an eye on your *assignments* for you."
 
 LOGIN_FAILED = (
     "*❌ Login Failed*\n\n"
@@ -267,6 +246,14 @@ ADMIN_PERFORMANCE = (
 )
 
 
+
+ADMIN_HEALTH = (
+    "*Polling Health*\n\n"
+    "Last successful poll: *{last_successful_poll}*\n"
+    "LMS fail streak: *{fail_streak}*\n"
+    "Active users: *{active_users}*"
+)
+
 # ── Rate Limiting ───────────────────────────────────────────────────────────
 
 RATE_LIMIT_USER = "⏳ *Please wait!* You can check again in *{remaining}*.\n\nTo prevent server blocks, manual checks are limited to once every 5 minutes."
@@ -275,4 +262,5 @@ RATE_LIMIT_ADMIN = "⏳ *Cooling down...*\n\nThe global poll was recently trigge
 # ── Generic ───────────────────────────────────────────────────────────────────
 
 SOMETHING_WENT_WRONG = "*⚠️ Something went wrong.* Please try again later."
+
 
