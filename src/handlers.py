@@ -582,6 +582,8 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await admin_backup_db(update, context)
     elif text == "Maint. Mode":
         await admin_toggle_maintenance(update, context)
+    elif text == "Health":
+        await admin_health(update, context)
     elif text == "Server Performance":
         await admin_performance(update, context)
 

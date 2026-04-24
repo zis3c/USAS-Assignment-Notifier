@@ -101,7 +101,6 @@ async def configure_runtime(app: Application) -> None:
                 BotCommand("check", "Check for new assignments now"),
                 BotCommand("help", "How to use this bot"),
                 BotCommand("logout", "Logout / Remove account"),
-                BotCommand("health", "Admin health summary"),
             ]
         )
     except Exception as e:
@@ -177,7 +176,8 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     safe_buttons = [
         "Check Now", "Status", "Help", "Register", "Logout", "Main Menu",
         "User Stats", "User List", "Poll All Now", "View Logs", "Broadcast",
-        "Find User", "Ban/Unban", "Backup DB", "Maint. Mode", "Confirm Sending", "Cancel"
+        "Find User", "Ban/Unban", "Backup DB", "Maint. Mode", "Health",
+        "Server Performance", "Confirm Sending", "Cancel"
     ]
     
     is_command = text.startswith('/')
@@ -255,7 +255,7 @@ def build_app() -> Application:
     # Keyboard button taps
     app.add_handler(
         MessageHandler(
-            filters.Regex(r"^(Check Now|Status|Help|Register|Logout|Main Menu|User Stats|User List|Poll All Now|View Logs|Broadcast|Find User|Ban/Unban|Backup DB|Maint. Mode|Server Performance)$"),
+            filters.Regex(r"^(Check Now|Status|Help|Register|Logout|Main Menu|User Stats|User List|Poll All Now|View Logs|Broadcast|Find User|Ban/Unban|Backup DB|Maint. Mode|Health|Server Performance)$"),
             button_router,
         )
     )
