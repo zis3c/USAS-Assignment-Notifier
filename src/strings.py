@@ -5,7 +5,7 @@
 WELCOME = (
     "*USAS Assignment Notifier*\n\n"
     "I’ll notify you when a *new assignment* appears on your LMS so you don’t have to check. Stay on top of everything!\n\n"
-    "👇 Tap *Register* below or /register to start."
+    "👇 Tap *Register* or /register."
 )
 
 HELP = (
