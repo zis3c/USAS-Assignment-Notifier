@@ -27,8 +27,6 @@ COUNTDOWN_STAGE_FIELD = {
 
 # Keep last used quote per (user_id, countdown_stage_days) to avoid immediate repeats.
 _LAST_COUNTDOWN_QUOTE: dict[tuple[int, int], str] = {}
-_SSL_FALLBACK_ALERT_SENT = False
-_SSL_FALLBACK_ALERT_LOCK = asyncio.Lock()
 
 
 @dataclass
@@ -326,9 +324,6 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
             except Exception as exc:
                 logger.warning("Submission-status check failed for user %s: %s", user_id, exc)
 
-        if client.ssl_fallback_used:
-            await _notify_ssl_fallback_once(bot, user.student_id, user.chat_id)
-
         # Update display name if freshly parsed
         if fetch_result.dashboard_html:
             parsed_name = extract_user_name(fetch_result.dashboard_html)
@@ -467,35 +462,6 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
         reminder_count=len(sent_reminder_ids),
         pending_count=pending_count,
     )
-
-
-async def _notify_ssl_fallback_once(bot, student_id: str, chat_id: str) -> None:
-    """Notify admin once per process lifetime if insecure TLS fallback was used."""
-    global _SSL_FALLBACK_ALERT_SENT
-
-    if _SSL_FALLBACK_ALERT_SENT or not config.ADMIN_ID:
-        return
-
-    async with _SSL_FALLBACK_ALERT_LOCK:
-        if _SSL_FALLBACK_ALERT_SENT or not config.ADMIN_ID:
-            return
-        try:
-            await bot.send_message(
-                chat_id=config.ADMIN_ID,
-                text=(
-                    "⚠️ *Security Notice*\n\n"
-                    "TLS fallback to insecure mode was used for LMS connectivity.\n"
-                    f"- Student ID: `{student_id}`\n"
-                    f"- Chat ID: `{chat_id}`\n\n"
-                    "Recommendation: fix server CA trust and re-enable strict TLS "
-                    "(`LMS_ALLOW_INSECURE_SSL=false`, `LMS_SSL_FALLBACK_INSECURE_ON_ERROR=false`)."
-                ),
-                parse_mode="Markdown",
-                disable_web_page_preview=True,
-            )
-            _SSL_FALLBACK_ALERT_SENT = True
-        except Exception as exc:
-            logger.warning("Failed to send SSL fallback admin alert: %s", exc)
 
 
 async def send_daily_logs(context) -> None:
