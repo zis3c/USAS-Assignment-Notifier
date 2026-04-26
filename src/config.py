@@ -27,6 +27,9 @@ LMS_ALLOW_INSECURE_SSL: bool = os.getenv("LMS_ALLOW_INSECURE_SSL", "false").stri
     "yes",
     "on",
 )
+LMS_SSL_FALLBACK_INSECURE_ON_ERROR: bool = os.getenv(
+    "LMS_SSL_FALLBACK_INSECURE_ON_ERROR", "true"
+).strip().lower() in ("1", "true", "yes", "on")
 LMS_CA_BUNDLE: str = os.getenv("LMS_CA_BUNDLE", "").strip()
 
 # ── Polling & Admin ───────────────────────────────────────────────────────────

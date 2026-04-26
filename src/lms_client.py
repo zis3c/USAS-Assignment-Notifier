@@ -422,41 +422,17 @@ class LMSClient:
         self.session_cookie = session_cookie
 
     async def fetch_events(self) -> FetchResult:
-        jar = aiohttp.CookieJar()
-        if self.session_cookie:
-            jar.update_cookies(
-                {"MoodleSession": self.session_cookie},
-                response_url=URL(config.LMS_BASE_URL),
-            )
-
         ssl_context = self._build_ssl_context_safe()
-        if ssl_context is False:
+        try:
+            return await self._fetch_events_with_ssl(ssl_context)
+        except (aiohttp.ClientConnectorCertificateError, aiohttp.ClientSSLError, ssl.SSLError):
+            if ssl_context is False or not config.LMS_SSL_FALLBACK_INSECURE_ON_ERROR:
+                raise
             logger.warning(
-                "LMS SSL verification is DISABLED via LMS_ALLOW_INSECURE_SSL=true. "
-                "This should only be used temporarily."
+                "LMS TLS verification failed for %s. Retrying with insecure TLS fallback.",
+                self.student_id,
             )
-        timeout = aiohttp.ClientTimeout(total=max(10, config.LMS_HTTP_TIMEOUT_SECONDS))
-        async with aiohttp.ClientSession(
-            cookie_jar=jar, 
-            connector=aiohttp.TCPConnector(ssl=ssl_context),
-            timeout=timeout
-        ) as session:
-            html, _ = await self._get_dashboard_html(session)
-            sesskey = extract_sesskey(html)
-            course_id, category_id, _ = extract_calendar_context(html)
-
-            events: List[Dict[str, Any]] = []
-            if sesskey:
-                events = await self._fetch_calendar_events(
-                    session, sesskey, course_id, category_id
-                )
-
-            if not events:
-                events = parse_events_from_html(html)
-            events = enrich_event_subjects(events, html)
-
-            cookie = self._extract_session_cookie(session)
-            return FetchResult(events=events, session_cookie=cookie, dashboard_html=html)
+            return await self._fetch_events_with_ssl(False)
 
     async def fetch_submission_statuses(
         self, assignment_links: Iterable[str]
@@ -475,39 +451,18 @@ class LMSClient:
         if not unique_links:
             return {}, self.session_cookie
 
-        jar = aiohttp.CookieJar()
-        if self.session_cookie:
-            jar.update_cookies(
-                {"MoodleSession": self.session_cookie},
-                response_url=URL(config.LMS_BASE_URL),
-            )
-
         ssl_context = self._build_ssl_context_safe()
-        if ssl_context is False:
+        try:
+            return await self._fetch_submission_statuses_with_ssl(unique_links, ssl_context)
+        except (aiohttp.ClientConnectorCertificateError, aiohttp.ClientSSLError, ssl.SSLError):
+            if ssl_context is False or not config.LMS_SSL_FALLBACK_INSECURE_ON_ERROR:
+                raise
             logger.warning(
-                "LMS SSL verification is DISABLED via LMS_ALLOW_INSECURE_SSL=true. "
-                "This should only be used temporarily."
+                "LMS TLS verification failed during submission checks for %s. "
+                "Retrying with insecure TLS fallback.",
+                self.student_id,
             )
-        timeout = aiohttp.ClientTimeout(total=max(10, config.LMS_HTTP_TIMEOUT_SECONDS))
-        async with aiohttp.ClientSession(
-            cookie_jar=jar,
-            connector=aiohttp.TCPConnector(ssl=ssl_context),
-            timeout=timeout,
-        ) as session:
-            # Ensure authenticated session (self-healing login if needed).
-            await self._get_dashboard_html(session)
-
-            sem = asyncio.Semaphore(min(config.MAX_CONCURRENCY, 5))
-            statuses: Dict[str, bool] = {}
-
-            async def run_one(link: str) -> None:
-                async with sem:
-                    submitted = await self._is_assignment_submitted(session, link)
-                    if submitted is not None:
-                        statuses[link] = submitted
-
-            await asyncio.gather(*(run_one(link) for link in unique_links))
-            return statuses, self._extract_session_cookie(session)
+            return await self._fetch_submission_statuses_with_ssl(unique_links, False)
 
     async def _get_dashboard_html(self, session: aiohttp.ClientSession) -> Tuple[str, bool]:
         """Fetch dashboard HTML, logging in if necessary."""
@@ -650,6 +605,78 @@ class LMSClient:
         cookies = session.cookie_jar.filter_cookies(config.LMS_BASE_URL)
         moodle = cookies.get("MoodleSession")
         return moodle.value if moodle else None
+
+    async def _fetch_events_with_ssl(self, ssl_context: ssl.SSLContext | bool) -> FetchResult:
+        jar = aiohttp.CookieJar()
+        if self.session_cookie:
+            jar.update_cookies(
+                {"MoodleSession": self.session_cookie},
+                response_url=URL(config.LMS_BASE_URL),
+            )
+
+        if ssl_context is False:
+            logger.warning(
+                "LMS SSL verification is DISABLED via fallback/config for %s.",
+                self.student_id,
+            )
+        timeout = aiohttp.ClientTimeout(total=max(10, config.LMS_HTTP_TIMEOUT_SECONDS))
+        async with aiohttp.ClientSession(
+            cookie_jar=jar,
+            connector=aiohttp.TCPConnector(ssl=ssl_context),
+            timeout=timeout,
+        ) as session:
+            html, _ = await self._get_dashboard_html(session)
+            sesskey = extract_sesskey(html)
+            course_id, category_id, _ = extract_calendar_context(html)
+
+            events: List[Dict[str, Any]] = []
+            if sesskey:
+                events = await self._fetch_calendar_events(
+                    session, sesskey, course_id, category_id
+                )
+
+            if not events:
+                events = parse_events_from_html(html)
+            events = enrich_event_subjects(events, html)
+
+            cookie = self._extract_session_cookie(session)
+            return FetchResult(events=events, session_cookie=cookie, dashboard_html=html)
+
+    async def _fetch_submission_statuses_with_ssl(
+        self, unique_links: List[str], ssl_context: ssl.SSLContext | bool
+    ) -> Tuple[Dict[str, bool], Optional[str]]:
+        jar = aiohttp.CookieJar()
+        if self.session_cookie:
+            jar.update_cookies(
+                {"MoodleSession": self.session_cookie},
+                response_url=URL(config.LMS_BASE_URL),
+            )
+
+        if ssl_context is False:
+            logger.warning(
+                "LMS SSL verification is DISABLED via fallback/config for submission checks (%s).",
+                self.student_id,
+            )
+        timeout = aiohttp.ClientTimeout(total=max(10, config.LMS_HTTP_TIMEOUT_SECONDS))
+        async with aiohttp.ClientSession(
+            cookie_jar=jar,
+            connector=aiohttp.TCPConnector(ssl=ssl_context),
+            timeout=timeout,
+        ) as session:
+            # Ensure authenticated session (self-healing login if needed).
+            await self._get_dashboard_html(session)
+
+            sem = asyncio.Semaphore(min(config.MAX_CONCURRENCY, 5))
+            statuses: Dict[str, bool] = {}
+
+            async def run_one(link: str) -> None:
+                async with sem:
+                    submitted = await self._is_assignment_submitted(session, link)
+                    if submitted is not None:
+                        statuses[link] = submitted
+
+            await asyncio.gather(*(run_one(link) for link in unique_links))
+            return statuses, self._extract_session_cookie(session)
 
     async def _request_text(
         self,
