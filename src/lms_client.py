@@ -420,6 +420,7 @@ class LMSClient:
         self.student_id = student_id
         self.password = password
         self.session_cookie = session_cookie
+        self.ssl_fallback_used = False
 
     async def fetch_events(self) -> FetchResult:
         ssl_context = self._build_ssl_context_safe()
@@ -432,6 +433,7 @@ class LMSClient:
                 "LMS TLS verification failed for %s. Retrying with insecure TLS fallback.",
                 self.student_id,
             )
+            self.ssl_fallback_used = True
             return await self._fetch_events_with_ssl(False)
 
     async def fetch_submission_statuses(
@@ -462,6 +464,7 @@ class LMSClient:
                 "Retrying with insecure TLS fallback.",
                 self.student_id,
             )
+            self.ssl_fallback_used = True
             return await self._fetch_submission_statuses_with_ssl(unique_links, False)
 
     async def _get_dashboard_html(self, session: aiohttp.ClientSession) -> Tuple[str, bool]:
