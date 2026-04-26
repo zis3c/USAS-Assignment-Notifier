@@ -435,7 +435,7 @@ class LMSClient:
                 "LMS SSL verification is DISABLED via LMS_ALLOW_INSECURE_SSL=true. "
                 "This should only be used temporarily."
             )
-        timeout = aiohttp.ClientTimeout(total=60)
+        timeout = aiohttp.ClientTimeout(total=max(10, config.LMS_HTTP_TIMEOUT_SECONDS))
         async with aiohttp.ClientSession(
             cookie_jar=jar, 
             connector=aiohttp.TCPConnector(ssl=ssl_context),
@@ -488,7 +488,7 @@ class LMSClient:
                 "LMS SSL verification is DISABLED via LMS_ALLOW_INSECURE_SSL=true. "
                 "This should only be used temporarily."
             )
-        timeout = aiohttp.ClientTimeout(total=60)
+        timeout = aiohttp.ClientTimeout(total=max(10, config.LMS_HTTP_TIMEOUT_SECONDS))
         async with aiohttp.ClientSession(
             cookie_jar=jar,
             connector=aiohttp.TCPConnector(ssl=ssl_context),
@@ -512,22 +512,19 @@ class LMSClient:
     async def _get_dashboard_html(self, session: aiohttp.ClientSession) -> Tuple[str, bool]:
         """Fetch dashboard HTML, logging in if necessary."""
         dashboard_url = f"{config.LMS_BASE_URL}/my/"
-        async with session.get(dashboard_url, allow_redirects=True) as resp:
-            html = await resp.text()
-            final_url = str(resp.url)
-            
-            if is_login_url(final_url) or page_requires_login(html):
-                logger.info("Session expired or missing for %s, logging in...", self.student_id)
-                login_html = await self._login(session)
-                return login_html, True
-            
-            return html, False
+        html, final_url = await self._request_text(session, "GET", dashboard_url, allow_redirects=True)
+
+        if is_login_url(final_url) or page_requires_login(html):
+            logger.info("Session expired or missing for %s, logging in...", self.student_id)
+            login_html = await self._login(session)
+            return login_html, True
+
+        return html, False
 
     async def _login(self, session: aiohttp.ClientSession) -> str:
         """Perform login and return the HTML of the landing page."""
         login_url = f"{config.LMS_BASE_URL}/login/index.php"
-        async with session.get(login_url, allow_redirects=True) as resp:
-            html = await resp.text()
+        html, _ = await self._request_text(session, "GET", login_url, allow_redirects=True)
         
         soup = BeautifulSoup(html, "html.parser")
         token_el = soup.find("input", attrs={"name": "logintoken"})
@@ -535,16 +532,16 @@ class LMSClient:
         if token_el and token_el.get("value"):
             payload["logintoken"] = token_el.get("value")
         
-        async with session.post(login_url, data=payload, allow_redirects=True) as resp:
-            final_url = str(resp.url)
-            lms_html = await resp.text()
-            
-            if is_login_url(final_url) or page_requires_login(lms_html):
-                logger.warning("Login FAILED for %s (still at login URL: %s)", self.student_id, final_url)
-                raise LMSAuthenticationError("LMS authentication failed.")
-            else:
-                logger.info("Login SUCCESS for %s", self.student_id)
-                return lms_html
+        lms_html, final_url = await self._request_text(
+            session, "POST", login_url, data=payload, allow_redirects=True
+        )
+
+        if is_login_url(final_url) or page_requires_login(lms_html):
+            logger.warning("Login FAILED for %s (still at login URL: %s)", self.student_id, final_url)
+            raise LMSAuthenticationError("LMS authentication failed.")
+
+        logger.info("Login SUCCESS for %s", self.student_id)
+        return lms_html
 
     async def _fetch_calendar_events(
         self,
@@ -582,8 +579,13 @@ class LMSClient:
         for methodname, args in methods:
             payload = [{"index": 0, "methodname": methodname, "args": args}]
             try:
-                async with session.post(ajax_url, data=json.dumps(payload), headers=headers) as resp:
-                    data = await resp.json(content_type=None)
+                data = await self._request_json(
+                    session,
+                    "POST",
+                    ajax_url,
+                    data=json.dumps(payload),
+                    headers=headers,
+                )
             except Exception as exc:
                 logger.warning("Calendar API [%s] failed: %s", methodname, exc)
                 continue
@@ -615,9 +617,9 @@ class LMSClient:
     ) -> Optional[bool]:
         """Check assignment page and infer whether submission is already made."""
         try:
-            async with session.get(assignment_url, allow_redirects=True) as resp:
-                html = await resp.text()
-                final_url = str(resp.url)
+            html, final_url = await self._request_text(
+                session, "GET", assignment_url, allow_redirects=True
+            )
         except Exception as exc:
             logger.warning("Assignment status fetch failed for %s: %s", assignment_url, exc)
             return None
@@ -633,10 +635,11 @@ class LMSClient:
                 return None
 
             try:
-                async with session.get(assignment_url, allow_redirects=True) as retry_resp:
-                    html = await retry_resp.text()
-                    if is_login_url(str(retry_resp.url)) or page_requires_login(html):
-                        return None
+                html, retry_final_url = await self._request_text(
+                    session, "GET", assignment_url, allow_redirects=True
+                )
+                if is_login_url(retry_final_url) or page_requires_login(html):
+                    return None
             except Exception as exc:
                 logger.warning("Assignment status retry failed for %s: %s", assignment_url, exc)
                 return None
@@ -647,6 +650,60 @@ class LMSClient:
         cookies = session.cookie_jar.filter_cookies(config.LMS_BASE_URL)
         moodle = cookies.get("MoodleSession")
         return moodle.value if moodle else None
+
+    async def _request_text(
+        self,
+        session: aiohttp.ClientSession,
+        method: str,
+        url: str,
+        **kwargs: Any,
+    ) -> Tuple[str, str]:
+        attempts = max(1, int(config.LMS_RETRY_ATTEMPTS))
+        for attempt in range(1, attempts + 1):
+            try:
+                async with session.request(method, url, **kwargs) as resp:
+                    return await resp.text(), str(resp.url)
+            except (aiohttp.ClientError, asyncio.TimeoutError, ssl.SSLError) as exc:
+                if attempt >= attempts:
+                    raise
+                wait_s = float(config.LMS_RETRY_BACKOFF_SECONDS) * attempt
+                logger.warning(
+                    "HTTP %s retry %s/%s for %s due to %s; waiting %.1fs",
+                    method,
+                    attempt,
+                    attempts,
+                    url,
+                    type(exc).__name__,
+                    wait_s,
+                )
+                await asyncio.sleep(wait_s)
+
+    async def _request_json(
+        self,
+        session: aiohttp.ClientSession,
+        method: str,
+        url: str,
+        **kwargs: Any,
+    ) -> Any:
+        attempts = max(1, int(config.LMS_RETRY_ATTEMPTS))
+        for attempt in range(1, attempts + 1):
+            try:
+                async with session.request(method, url, **kwargs) as resp:
+                    return await resp.json(content_type=None)
+            except (aiohttp.ClientError, asyncio.TimeoutError, ssl.SSLError) as exc:
+                if attempt >= attempts:
+                    raise
+                wait_s = float(config.LMS_RETRY_BACKOFF_SECONDS) * attempt
+                logger.warning(
+                    "HTTP JSON %s retry %s/%s for %s due to %s; waiting %.1fs",
+                    method,
+                    attempt,
+                    attempts,
+                    url,
+                    type(exc).__name__,
+                    wait_s,
+                )
+                await asyncio.sleep(wait_s)
 
     @staticmethod
     def _build_ssl_context_safe() -> ssl.SSLContext | bool:
