@@ -64,6 +64,10 @@ Set at minimum in `.env`:
 - `LMS_BASE_URL` (default is already provided)
 - `ADMIN_ID` (required for daily log auto-send)
 
+Recommended security settings:
+- Keep `LMS_ALLOW_INSECURE_SSL=false` (default).
+- If your environment needs custom trust roots, set `LMS_CA_BUNDLE` to a valid CA bundle path.
+
 ## 5) Run Bot
 
 ```bash
@@ -90,6 +94,9 @@ Build:
 ```bash
 docker build -t usas-due-bot .
 ```
+
+Security note:
+- `.dockerignore` excludes `.env`, `service_account.json`, `data/`, and `logs/` to avoid leaking secrets into images.
 
 Run:
 

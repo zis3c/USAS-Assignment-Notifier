@@ -79,12 +79,16 @@ Core:
 - `BOT_TOKEN` - Telegram bot token from [@BotFather](https://t.me/BotFather)
 - `FERNET_KEY` - Encryption key for LMS credentials/cookies
 - `LMS_BASE_URL` - Default: `https://lms.usas.edu.my`
+- `LMS_ALLOW_INSECURE_SSL` - Default `false` (keep TLS verification ON in production)
+- `LMS_CA_BUNDLE` - Optional custom CA bundle path for LMS TLS verification
 
 Polling and reminders:
 - `POLL_INTERVAL_SECONDS` - Auto scan interval (default `3600`)
 - `MAX_CONCURRENCY` - Concurrent user polling limit
 - `EVENT_HORIZON_DAYS` - LMS event horizon window
 - `REMINDER_INTERVAL_SECONDS` - Generic reminder cooldown
+- `REGISTER_MAX_ATTEMPTS` - Failed registration-login attempts before lockout
+- `REGISTER_LOCKOUT_SECONDS` - Lockout duration after too many failed attempts
 
 Admin and logs:
 - `ADMIN_ID` - Telegram numeric user ID of admin
@@ -186,6 +190,9 @@ USAS-Assignment-Notifier/
    - Countdown reminders (3d/2d/within 24h)
    - Manual pending reminders on **Check Now**
 6. Before sending pending reminders, bot checks assignment page status to skip already submitted work.
+
+Logout behavior:
+- `/logout` removes the user record and linked assignment metadata from the database.
 
 ## Troubleshooting
 

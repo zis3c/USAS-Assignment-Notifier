@@ -408,18 +408,23 @@ class LMSClient:
         self.session_cookie = session_cookie
 
     async def fetch_events(self) -> FetchResult:
-        jar = aiohttp.CookieJar(unsafe=True)
+        jar = aiohttp.CookieJar()
         if self.session_cookie:
             jar.update_cookies(
                 {"MoodleSession": self.session_cookie},
                 response_url=URL(config.LMS_BASE_URL),
             )
 
-        # Bypass SSL verification due to USAS LMS certificate chain issues on some environments
+        ssl_context = config.build_lms_ssl_context()
+        if ssl_context is False:
+            logger.warning(
+                "LMS SSL verification is DISABLED via LMS_ALLOW_INSECURE_SSL=true. "
+                "This should only be used temporarily."
+            )
         timeout = aiohttp.ClientTimeout(total=60)
         async with aiohttp.ClientSession(
             cookie_jar=jar, 
-            connector=aiohttp.TCPConnector(ssl=False),
+            connector=aiohttp.TCPConnector(ssl=ssl_context),
             timeout=timeout
         ) as session:
             html, _ = await self._get_dashboard_html(session)
@@ -456,17 +461,23 @@ class LMSClient:
         if not unique_links:
             return {}, self.session_cookie
 
-        jar = aiohttp.CookieJar(unsafe=True)
+        jar = aiohttp.CookieJar()
         if self.session_cookie:
             jar.update_cookies(
                 {"MoodleSession": self.session_cookie},
                 response_url=URL(config.LMS_BASE_URL),
             )
 
+        ssl_context = config.build_lms_ssl_context()
+        if ssl_context is False:
+            logger.warning(
+                "LMS SSL verification is DISABLED via LMS_ALLOW_INSECURE_SSL=true. "
+                "This should only be used temporarily."
+            )
         timeout = aiohttp.ClientTimeout(total=60)
         async with aiohttp.ClientSession(
             cookie_jar=jar,
-            connector=aiohttp.TCPConnector(ssl=False),
+            connector=aiohttp.TCPConnector(ssl=ssl_context),
             timeout=timeout,
         ) as session:
             # Ensure authenticated session (self-healing login if needed).

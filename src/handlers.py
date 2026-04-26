@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import psutil
 
 from cryptography.fernet import InvalidToken
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from telegram import Update
 from telegram.error import TelegramError
 from telegram.ext import (
@@ -24,7 +24,7 @@ from src.crypto import decrypt_text, encrypt_text
 from src.database import AsyncSessionLocal
 from src.jobs import poll_user_id
 from src.lms_client import LMSAuthenticationError, LMSClient, extract_user_name, extract_sesskey
-from src.models import User, SystemSettings
+from src.models import User, SystemSettings, UserEvent
 from src.logging_utils import log_activity
 
 logger = logging.getLogger(__name__)
@@ -269,6 +269,20 @@ async def receive_student_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def receive_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    now_ts = datetime.now(timezone.utc).timestamp()
+    blocked_until = float(context.user_data.get("register_blocked_until", 0))
+    if now_ts < blocked_until:
+        context.user_data["is_typing_password"] = False
+        remaining = int(blocked_until - now_ts)
+        minutes, seconds = divmod(remaining, 60)
+        time_limit_str = f"{minutes}m {seconds}s" if minutes > 0 else f"{seconds}s"
+        await update.message.reply_text(
+            f"Too many failed login attempts. Please try again in *{time_limit_str}*.",
+            parse_mode="Markdown",
+            reply_markup=keyboards.main_menu(False),
+        )
+        return ConversationHandler.END
+
     text = update.message.text.strip()
     # Reset password masking flag
     context.user_data["is_typing_password"] = False
@@ -305,6 +319,13 @@ async def receive_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                  raise Exception("Login failed (no sesskey found)")
         except Exception as e:
             logger.warning("Validation failed for %s: %s", student_id, e)
+            fail_count = int(context.user_data.get("register_fail_count", 0)) + 1
+            context.user_data["register_fail_count"] = fail_count
+            if fail_count >= config.REGISTER_MAX_ATTEMPTS:
+                context.user_data["register_blocked_until"] = (
+                    datetime.now(timezone.utc).timestamp() + config.REGISTER_LOCKOUT_SECONDS
+                )
+                context.user_data["register_fail_count"] = 0
             await waiting.delete()
             await update.message.reply_text(
                 strings.LOGIN_FAILED,
@@ -314,6 +335,8 @@ async def receive_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             return ConversationHandler.END
 
         await waiting.delete()
+        context.user_data["register_fail_count"] = 0
+        context.user_data["register_blocked_until"] = 0
         parsed_name = extract_user_name(fetch_result.dashboard_html)
 
         if user:
@@ -384,7 +407,8 @@ async def unregister_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE)
             result = await session.execute(select(User).where(User.chat_id == chat_id))
             user = result.scalars().first()
             if user:
-                user.active = False
+                await session.execute(delete(UserEvent).where(UserEvent.user_id == user.id))
+                await session.delete(user)
                 await session.commit()
         await update.message.reply_text(
             strings.UNREGISTERED_OK, parse_mode="Markdown", reply_markup=keyboards.main_menu(False)

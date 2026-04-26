@@ -23,8 +23,18 @@ For user-facing bot support, you can also reach the team via Telegram: `@STEMUSA
 - LMS passwords are encrypted using Fernet before storage.
 - Session cookies are stored encrypted when persisted.
 - Sensitive values are loaded from environment variables.
+- LMS TLS verification is enabled by default (insecure TLS must be explicitly enabled via `LMS_ALLOW_INSECURE_SSL=true`).
 - Registration password messages are deleted after processing when possible.
+- Registration login attempts are rate-limited with lockout after repeated failures.
+- Free-text user messages are redacted in activity logs.
 - Submission-status checks are used to avoid sending reminders for already-submitted assignments.
+
+## Production Hardening Checklist
+
+- Keep `LMS_ALLOW_INSECURE_SSL=false` in production.
+- Use `LMS_CA_BUNDLE` instead of disabling TLS verification when custom CA trust is required.
+- Never store `service_account.json` in deploy/build contexts; rotate the key immediately if exposure is suspected.
+- Ensure Docker builds use `.dockerignore` so `.env`, DB files, and logs are not baked into images.
 
 ## Scope Notes
 

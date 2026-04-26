@@ -74,6 +74,18 @@ logging.getLogger("telegram").setLevel(logging.WARNING)
 logger = logging.getLogger("lms_notifier")
 
 
+def warn_sensitive_local_files() -> None:
+    """Warn if sensitive local files exist in runtime directory."""
+    sensitive_files = ("service_account.json", ".env")
+    for filename in sensitive_files:
+        if os.path.exists(filename):
+            logger.warning(
+                "Sensitive file detected in runtime directory: %s. "
+                "Ensure it is never copied into images/artifacts and rotate if exposed.",
+                filename,
+            )
+
+
 def _seconds_until_next_poll_tick(interval_seconds: int) -> float:
     """Seconds until the next local interval boundary (e.g. HH:00 when interval=3600)."""
     now_local = datetime.now(config.LOCAL_TZ)
@@ -181,23 +193,35 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     ]
     
     is_command = text.startswith('/')
-    log_text = text
-    
-    # --- Activity Logging (State-based Masking) ---
-    if context.user_data.get("is_typing_password"):
-        log_text = "[PASSWORD MASKED]"
+    command_name = text.split()[0] if is_command else ""
+    is_password_step = bool(context.user_data.get("is_typing_password"))
+    if is_password_step:
+        safe_log_text = "[PASSWORD MASKED]"
+    elif text in safe_buttons:
+        safe_log_text = f"[BUTTON] {text}"
+    elif is_command:
+        safe_log_text = f"[COMMAND] {command_name}"
+    else:
+        safe_log_text = "[TEXT REDACTED]"
 
-    logger.info(f"👤 Activity: {actor_name} ({user_id}) -> {log_text}")
+    logger.info(f"👤 Activity: {actor_name} ({user_id}) -> {safe_log_text}")
 
     # --- New Activity Log (Clean Format) ---
     action = "MSG"
-    details = log_text
+    details = safe_log_text
     
     if is_command:
         action = "COMMAND"
+        details = command_name
     elif text in safe_buttons:
         action = "KEYBOARD_CLICK"
         details = f"Button: {text}"
+    elif is_password_step:
+        action = "PASSWORD_INPUT"
+        details = "[MASKED]"
+    else:
+        action = "TEXT_INPUT"
+        details = "[REDACTED]"
 
     # Use first_name for the log as requested (Radzi)
     first_name = update.effective_user.first_name or "Unknown"
@@ -331,6 +355,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 async def run_bot() -> None:
     """Main async entry point for the bot and web server."""
     logger.info("🚀  LMS Assignment Notifier starting…")
+    warn_sensitive_local_files()
     
     # 1. Start web server immediately so health probes can reach the bot.
     await start_web_server()
