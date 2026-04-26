@@ -61,7 +61,20 @@ class LMSAuthenticationError(Exception):
 
 def is_login_url(url: str) -> bool:
     lowered = url.lower()
-    return "/login/" in lowered or "login" in lowered or "/v2/index.php" in lowered
+    return "/login/" in lowered or "/login/index.php" in lowered
+
+
+def page_requires_login(html: str) -> bool:
+    """
+    Detect whether a response page is actually a login page.
+    Some LMS deployments use non-standard paths (for example `/v2/index.php`)
+    for both public landing and post-login pages, so URL-only checks are unsafe.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    has_password = soup.find("input", attrs={"name": "password"}) is not None
+    has_username = soup.find("input", attrs={"name": "username"}) is not None
+    has_login_token = soup.find("input", attrs={"name": "logintoken"}) is not None
+    return bool((has_username and has_password) or has_login_token)
 
 
 def is_assignment_url(url: str) -> bool:
@@ -503,7 +516,7 @@ class LMSClient:
             html = await resp.text()
             final_url = str(resp.url)
             
-            if is_login_url(final_url):
+            if is_login_url(final_url) or page_requires_login(html):
                 logger.info("Session expired or missing for %s, logging in...", self.student_id)
                 login_html = await self._login(session)
                 return login_html, True
@@ -526,7 +539,7 @@ class LMSClient:
             final_url = str(resp.url)
             lms_html = await resp.text()
             
-            if is_login_url(final_url):
+            if is_login_url(final_url) or page_requires_login(lms_html):
                 logger.warning("Login FAILED for %s (still at login URL: %s)", self.student_id, final_url)
                 raise LMSAuthenticationError("LMS authentication failed.")
             else:
@@ -609,7 +622,7 @@ class LMSClient:
             logger.warning("Assignment status fetch failed for %s: %s", assignment_url, exc)
             return None
 
-        if is_login_url(final_url):
+        if is_login_url(final_url) or page_requires_login(html):
             # Session may have expired between calls; retry once after login.
             try:
                 await self._login(session)
@@ -622,7 +635,7 @@ class LMSClient:
             try:
                 async with session.get(assignment_url, allow_redirects=True) as retry_resp:
                     html = await retry_resp.text()
-                    if is_login_url(str(retry_resp.url)):
+                    if is_login_url(str(retry_resp.url)) or page_requires_login(html):
                         return None
             except Exception as exc:
                 logger.warning("Assignment status retry failed for %s: %s", assignment_url, exc)
