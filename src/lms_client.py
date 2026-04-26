@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import re
+import ssl
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -415,7 +416,7 @@ class LMSClient:
                 response_url=URL(config.LMS_BASE_URL),
             )
 
-        ssl_context = config.build_lms_ssl_context()
+        ssl_context = self._build_ssl_context_safe()
         if ssl_context is False:
             logger.warning(
                 "LMS SSL verification is DISABLED via LMS_ALLOW_INSECURE_SSL=true. "
@@ -468,7 +469,7 @@ class LMSClient:
                 response_url=URL(config.LMS_BASE_URL),
             )
 
-        ssl_context = config.build_lms_ssl_context()
+        ssl_context = self._build_ssl_context_safe()
         if ssl_context is False:
             logger.warning(
                 "LMS SSL verification is DISABLED via LMS_ALLOW_INSECURE_SSL=true. "
@@ -633,3 +634,18 @@ class LMSClient:
         cookies = session.cookie_jar.filter_cookies(config.LMS_BASE_URL)
         moodle = cookies.get("MoodleSession")
         return moodle.value if moodle else None
+
+    @staticmethod
+    def _build_ssl_context_safe() -> ssl.SSLContext | bool:
+        """
+        Build SSL policy with resilience for misconfigured custom CA paths.
+        Keeps secure defaults while avoiding hard-fail on bad `LMS_CA_BUNDLE`.
+        """
+        try:
+            return config.build_lms_ssl_context()
+        except Exception as exc:
+            logger.warning(
+                "Invalid TLS configuration for LMS (%s). Falling back to system CA trust.",
+                exc,
+            )
+            return ssl.create_default_context()

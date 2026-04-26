@@ -1,9 +1,11 @@
 """Configuration : loads .env and exposes all runtime constants."""
 import os
 import ssl
+from typing import Optional
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
+import certifi
 
 load_dotenv()
 
@@ -55,6 +57,16 @@ PUBLIC_BASE_URL: str = os.getenv("PUBLIC_BASE_URL", "").rstrip("/") # e.g. https
 SELF_PING_INTERVAL: int = 14 * 60 # 14 minutes
 
 
+def _resolve_ca_bundle() -> Optional[str]:
+    """Resolve CA bundle path with sensible defaults."""
+    if LMS_CA_BUNDLE:
+        return LMS_CA_BUNDLE
+    try:
+        return certifi.where()
+    except Exception:
+        return None
+
+
 def build_lms_ssl_context() -> ssl.SSLContext | bool:
     """
     Build SSL policy for LMS HTTP requests.
@@ -65,8 +77,7 @@ def build_lms_ssl_context() -> ssl.SSLContext | bool:
     if LMS_ALLOW_INSECURE_SSL:
         return False
 
-    context = ssl.create_default_context()
-    if LMS_CA_BUNDLE:
-        context.load_verify_locations(cafile=LMS_CA_BUNDLE)
+    cafile = _resolve_ca_bundle()
+    context = ssl.create_default_context(cafile=cafile) if cafile else ssl.create_default_context()
     return context
 
