@@ -22,7 +22,7 @@ HELP_DETAIL = (
     "*How it works?*\n\n"
     "After you *register*, I check your *USAS LMS* automatically *every hour*, and if I find a *new assignment*, *quiz*, or *deadline update*, I send it to you *right away*.\n\n"
     "I also send *reminder messages* when your assignment is *3 days*, *2 days*, and within *24 hours* before the deadline, and you can tap *Check Now* anytime for an *instant scan*.\n\n"
-    "If you face any problems, please contact @STEMUSAS."
+    "If you face any *problems*, please contact *@STEMUSAS*."
 )
 
 # ── Registration Flow ─────────────────────────────────────────────────────────
