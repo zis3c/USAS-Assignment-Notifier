@@ -85,6 +85,11 @@ Core:
 Polling and reminders:
 - `POLL_INTERVAL_SECONDS` - Auto scan interval (default `3600`)
 - `MAX_CONCURRENCY` - Concurrent user polling limit
+- `POLL_BATCH_SIZE` - Max due users claimed per poll tick
+- `POLL_TICK_SECONDS` - Scheduler tick interval for due-user claiming
+- `POLL_JITTER_SECONDS` - Random spread for `next_poll_at` scheduling
+- `POLL_LOCK_TTL_SECONDS` - Claim lock timeout for worker safety
+- `POLL_FAILURE_BACKOFF_MAX_SECONDS` - Max retry backoff after repeated failures
 - `EVENT_HORIZON_DAYS` - LMS event horizon window
 - `REMINDER_INTERVAL_SECONDS` - Generic reminder cooldown
 - `REGISTER_MAX_ATTEMPTS` - Failed registration-login attempts before lockout
@@ -98,7 +103,8 @@ Admin and logs:
 
 Database:
 - `DB_PATH` - SQLite path for local mode
-- `DATABASE_URL` - Optional PostgreSQL URL (legacy/advanced use; default deployment uses SQLite)
+- `DATABASE_URL` - PostgreSQL URL (uses asyncpg dialect automatically)
+- `MIGRATION_BATCH_SIZE` - Batch size for SQLite -> PostgreSQL migration script
 
 Server runtime:
 - `PORT` - Local health endpoint port (set `10001` in DigitalOcean setup)
@@ -184,7 +190,7 @@ USAS-Assignment-Notifier/
 1. User registers with matric number and LMS password.
 2. Bot verifies LMS login before saving credentials.
 3. Credentials are encrypted and stored; session cookie is reused when possible.
-4. Hourly scheduler polls LMS events for active users.
+4. Scheduler ticks frequently and claims due users from DB queue state (`next_poll_at`).
 5. Bot sends:
    - New assignment alerts
    - Countdown reminders (3d/2d/within 24h)
@@ -207,6 +213,7 @@ Logout behavior:
 ## Additional Docs
 
 - [AUTO_DEPLOY.md](AUTO_DEPLOY.md)
+- [MIGRATION_RUNBOOK.md](MIGRATION_RUNBOOK.md)
 - [INSTALLATION.md](INSTALLATION.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [SECURITY.md](SECURITY.md)

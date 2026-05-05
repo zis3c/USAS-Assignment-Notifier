@@ -122,11 +122,11 @@ async def configure_runtime(app: Application) -> None:
         logger.error("JobQueue unavailable: auto polling/reminders/daily logs are disabled.")
         return
 
-    poll_interval = max(1, config.POLL_INTERVAL_SECONDS)
-    if poll_interval != config.POLL_INTERVAL_SECONDS:
+    poll_interval = max(1, config.POLL_TICK_SECONDS)
+    if poll_interval != config.POLL_TICK_SECONDS:
         logger.warning(
-            "Invalid POLL_INTERVAL_SECONDS=%s; using %s instead.",
-            config.POLL_INTERVAL_SECONDS,
+            "Invalid POLL_TICK_SECONDS=%s; using %s instead.",
+            config.POLL_TICK_SECONDS,
             poll_interval,
         )
     first_poll_in = _seconds_until_next_poll_tick(poll_interval)

@@ -2,7 +2,7 @@ import os
 import sqlite3
 import logging
 from datetime import datetime, timezone
-from typing import AsyncGenerator
+from typing import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -44,6 +44,7 @@ async def init_db() -> None:
             pass
         else:
             await _migrate_db_postgres(conn)
+            await _assert_postgres_required_columns(conn)
     
     if is_sqlite:
         _migrate_db_sqlite()
@@ -54,11 +55,17 @@ async def _migrate_db_postgres(conn) -> None:
     migrations = [
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS next_poll_at TIMESTAMP",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS poll_lock_until TIMESTAMP",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS poll_fail_count INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_poll_error TEXT",
         "ALTER TABLE user_events ADD COLUMN IF NOT EXISTS subject TEXT",
         "ALTER TABLE user_events ADD COLUMN IF NOT EXISTS last_notified_at TIMESTAMP",
         "ALTER TABLE user_events ADD COLUMN IF NOT EXISTS reminder_3d_sent_at TIMESTAMP",
         "ALTER TABLE user_events ADD COLUMN IF NOT EXISTS reminder_2d_sent_at TIMESTAMP",
         "ALTER TABLE user_events ADD COLUMN IF NOT EXISTS reminder_1d_sent_at TIMESTAMP",
+        "CREATE INDEX IF NOT EXISTS ix_users_active_next_poll_at ON users (active, next_poll_at)",
+        "CREATE INDEX IF NOT EXISTS ix_users_poll_lock_until ON users (poll_lock_until)",
     ]
     for sql in migrations:
         try:
@@ -69,11 +76,42 @@ async def _migrate_db_postgres(conn) -> None:
             logger.warning("PostgreSQL migration skipped for '%s': %s", sql, e)
 
 
+async def _assert_postgres_required_columns(conn) -> None:
+    """Fail fast in PostgreSQL mode if queue columns are missing."""
+    required_columns: Sequence[str] = (
+        "next_poll_at",
+        "poll_lock_until",
+        "poll_fail_count",
+        "last_poll_error",
+    )
+    result = await conn.execute(
+        text(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'users'
+            """
+        )
+    )
+    existing = {row[0] for row in result.fetchall()}
+    missing = [col for col in required_columns if col not in existing]
+    if missing:
+        raise RuntimeError(
+            "PostgreSQL schema missing required users columns: "
+            + ", ".join(missing)
+            + ". Run DB migration before starting bot."
+        )
+
+
 def _migrate_db_sqlite() -> None:
     """Apply missing columns for SQLite manually (SQLite doesn't support IF NOT EXISTS in ALTER)."""
     migrations = [
         "ALTER TABLE users ADD COLUMN display_name TEXT",
         "ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN next_poll_at DATETIME",
+        "ALTER TABLE users ADD COLUMN poll_lock_until DATETIME",
+        "ALTER TABLE users ADD COLUMN poll_fail_count INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN last_poll_error TEXT",
         "ALTER TABLE user_events ADD COLUMN subject TEXT",
         "ALTER TABLE user_events ADD COLUMN last_notified_at DATETIME",
         "ALTER TABLE user_events ADD COLUMN reminder_3d_sent_at DATETIME",
@@ -89,5 +127,12 @@ def _migrate_db_sqlite() -> None:
                 conn.commit()
             except sqlite3.OperationalError:
                 pass
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS ix_users_active_next_poll_at ON users (active, next_poll_at)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS ix_users_poll_lock_until ON users (poll_lock_until)"
+        )
+        conn.commit()
     finally:
         conn.close()

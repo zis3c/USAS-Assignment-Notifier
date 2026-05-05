@@ -2,9 +2,10 @@
 import asyncio
 import logging
 import os
+import random
 import shutil
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import psutil
 
 from cryptography.fernet import InvalidToken
@@ -21,13 +22,19 @@ from telegram.ext import (
 
 from src import config, keyboards, strings
 from src.crypto import decrypt_text, encrypt_text
-from src.database import AsyncSessionLocal
+from src.database import AsyncSessionLocal, get_utc_now
 from src.jobs import poll_user_id
 from src.lms_client import LMSAuthenticationError, LMSClient, extract_user_name, extract_sesskey
 from src.models import User, SystemSettings, UserEvent
 from src.logging_utils import log_activity
 
 logger = logging.getLogger(__name__)
+
+
+def _seed_next_poll_at() -> datetime:
+    base = max(60, config.POLL_INTERVAL_SECONDS)
+    jitter = random.randint(-config.POLL_JITTER_SECONDS, config.POLL_JITTER_SECONDS)
+    return get_utc_now() + timedelta(seconds=max(60, base + jitter))
 
 # ── Conversation states ───────────────────────────────────────────────────────
 ASK_STUDENT_ID, ASK_PASSWORD = range(2)
@@ -344,6 +351,11 @@ async def receive_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             user.password_blob = enc_pwd
             user.display_name = parsed_name
             user.active = True
+            user.poll_lock_until = None
+            user.poll_fail_count = 0
+            user.last_poll_error = None
+            if user.next_poll_at is None:
+                user.next_poll_at = _seed_next_poll_at()
             user.session_cookie_blob = encrypt_text(fetch_result.session_cookie) if fetch_result.session_cookie else None
         else:
             user = User(
@@ -352,6 +364,10 @@ async def receive_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 password_blob=enc_pwd,
                 display_name=parsed_name,
                 active=True,
+                next_poll_at=_seed_next_poll_at(),
+                poll_lock_until=None,
+                poll_fail_count=0,
+                last_poll_error=None,
                 session_cookie_blob=encrypt_text(fetch_result.session_cookie) if fetch_result.session_cookie else None
             )
             session.add(user)

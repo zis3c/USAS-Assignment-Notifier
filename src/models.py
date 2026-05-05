@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from src.database import get_utc_now
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, LargeBinary, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, LargeBinary, String, UniqueConstraint
 
 from sqlalchemy.orm import declarative_base
 
@@ -20,8 +20,16 @@ class User(Base):
     session_cookie_blob = Column(LargeBinary, nullable=True)
     created_at = Column(DateTime, default=get_utc_now)
     last_checked_at = Column(DateTime, nullable=True)
+    next_poll_at = Column(DateTime, nullable=True, index=True)
+    poll_lock_until = Column(DateTime, nullable=True, index=True)
+    poll_fail_count = Column(Integer, nullable=False, default=0)
+    last_poll_error = Column(String, nullable=True)
     active = Column(Boolean, default=True)
     is_banned = Column(Boolean, default=False)
+
+    __table_args__ = (
+        Index("ix_users_active_next_poll_at", "active", "next_poll_at"),
+    )
 
 
 class UserEvent(Base):

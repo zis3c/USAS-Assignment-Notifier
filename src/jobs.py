@@ -4,12 +4,12 @@ import logging
 import random
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from html import escape
 from typing import Optional
 
 from cryptography.fernet import InvalidToken
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from src import config, strings
 from src.crypto import decrypt_text, encrypt_text
@@ -137,20 +137,125 @@ def _format_title(title: str) -> str:
     return re.sub(r"\s+is\s+due$", "", clean, flags=re.IGNORECASE).strip()
 
 
+def _next_poll_at_from_now(now_utc: datetime, fail_count: int) -> datetime:
+    base = max(60, config.POLL_INTERVAL_SECONDS)
+    if fail_count <= 0:
+        jitter = random.randint(-config.POLL_JITTER_SECONDS, config.POLL_JITTER_SECONDS)
+        return now_utc + timedelta(seconds=max(60, base + jitter))
+
+    delay = min(config.POLL_FAILURE_BACKOFF_MAX_SECONDS, min(base, 300) * (2 ** min(fail_count, 6)))
+    jitter = random.randint(0, min(30, config.POLL_JITTER_SECONDS))
+    return now_utc + timedelta(seconds=delay + jitter)
+
+
+async def _claim_due_user_ids(limit: int, now_utc: datetime) -> list[int]:
+    if limit <= 0:
+        return []
+
+    lock_until = now_utc + timedelta(seconds=max(30, config.POLL_LOCK_TTL_SECONDS))
+    async with AsyncSessionLocal() as session:
+        dialect = session.bind.dialect.name if session.bind else ""
+        if dialect == "postgresql":
+            result = await session.execute(
+                text(
+                    """
+                    WITH due AS (
+                        SELECT id
+                        FROM users
+                        WHERE active = TRUE
+                          AND (next_poll_at IS NULL OR next_poll_at <= :now_utc)
+                          AND (poll_lock_until IS NULL OR poll_lock_until <= :now_utc)
+                        ORDER BY COALESCE(next_poll_at, :now_utc), id
+                        LIMIT :limit
+                        FOR UPDATE SKIP LOCKED
+                    )
+                    UPDATE users AS u
+                    SET poll_lock_until = :lock_until
+                    FROM due
+                    WHERE u.id = due.id
+                    RETURNING u.id
+                    """
+                ),
+                {"now_utc": now_utc, "lock_until": lock_until, "limit": limit},
+            )
+            await session.commit()
+            return [int(row[0]) for row in result.fetchall()]
+
+        candidate_rows = await session.execute(
+            text(
+                """
+                SELECT id
+                FROM users
+                WHERE active = 1
+                  AND (next_poll_at IS NULL OR next_poll_at <= :now_utc)
+                  AND (poll_lock_until IS NULL OR poll_lock_until <= :now_utc)
+                ORDER BY COALESCE(next_poll_at, :now_utc), id
+                LIMIT :limit
+                """
+            ),
+            {"now_utc": now_utc, "limit": limit},
+        )
+        claimed_ids: list[int] = []
+        for row in candidate_rows.fetchall():
+            uid = int(row[0])
+            update_result = await session.execute(
+                text(
+                    """
+                    UPDATE users
+                    SET poll_lock_until = :lock_until
+                    WHERE id = :uid
+                      AND (poll_lock_until IS NULL OR poll_lock_until <= :now_utc)
+                    """
+                ),
+                {"uid": uid, "lock_until": lock_until, "now_utc": now_utc},
+            )
+            if update_result.rowcount:
+                claimed_ids.append(uid)
+        await session.commit()
+        return claimed_ids
+
+
+async def _finalize_claimed_user_poll(user_id: int, result: PollResult, now_utc: datetime) -> None:
+    async with AsyncSessionLocal() as session:
+        user = await session.get(User, user_id)
+        if not user:
+            return
+        if result.error:
+            user.poll_fail_count = int(user.poll_fail_count or 0) + 1
+            user.last_poll_error = result.error
+        else:
+            user.poll_fail_count = 0
+            user.last_poll_error = None
+        user.next_poll_at = _next_poll_at_from_now(now_utc, int(user.poll_fail_count or 0))
+        user.poll_lock_until = None
+        await session.commit()
+
+
 async def poll_all_users(context) -> None:
-    """Job: poll every active user for new assignments."""
+    """Job: claim due users and poll in bounded batches."""
     start_time = datetime.now()
     bot_data = context.application.bot_data
     health_stats = bot_data.setdefault("health_stats", {})
     health_stats["last_poll_at"] = datetime.now(timezone.utc)
 
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User.id).where(User.active.is_(True)))
-        user_ids = result.scalars().all()
-
-    health_stats["last_active_user_count"] = len(user_ids)
+    now_utc = get_utc_now()
+    user_ids = await _claim_due_user_ids(config.POLL_BATCH_SIZE, now_utc)
+    health_stats["last_claimed_user_count"] = len(user_ids)
 
     if not user_ids:
+        async with AsyncSessionLocal() as session:
+            due_count_result = await session.execute(
+                text(
+                    """
+                    SELECT COUNT(*)
+                    FROM users
+                    WHERE active = 1
+                      AND (next_poll_at IS NULL OR next_poll_at <= :now_utc)
+                    """
+                ),
+                {"now_utc": now_utc},
+            )
+            health_stats["last_due_user_count"] = int(due_count_result.scalar() or 0)
         return
 
     sem = asyncio.Semaphore(config.MAX_CONCURRENCY)
@@ -165,22 +270,44 @@ async def poll_all_users(context) -> None:
                 return PollResult(error="internal_error")
 
     results = await asyncio.gather(*(run_one(uid) for uid in user_ids))
+    await asyncio.gather(
+        *(_finalize_claimed_user_poll(uid, result, now_utc) for uid, result in zip(user_ids, results))
+    )
     failed_count = sum(1 for result in results if result.error)
     success_count = len(results) - failed_count
 
     health_stats["last_failed_user_count"] = failed_count
     health_stats["last_success_user_count"] = success_count
 
-    # "Fail streak" means consecutive poll cycles with at least one user failure.
     if failed_count == 0:
         health_stats["lms_fail_streak"] = 0
         health_stats["last_successful_poll_at"] = datetime.now(timezone.utc)
     else:
         health_stats["lms_fail_streak"] = int(health_stats.get("lms_fail_streak", 0)) + 1
-    
-    duration = (datetime.now() - start_time).total_seconds()
-    logger.info("📊  Poll cycle completed in %.2fs for %d users.", duration, len(user_ids))
 
+    async with AsyncSessionLocal() as session:
+        due_count_result = await session.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM users
+                WHERE active = 1
+                  AND (next_poll_at IS NULL OR next_poll_at <= :now_utc)
+                """
+            ),
+            {"now_utc": now_utc},
+        )
+        health_stats["last_due_user_count"] = int(due_count_result.scalar() or 0)
+
+    duration = (datetime.now() - start_time).total_seconds()
+    logger.info(
+        "Poll tick completed in %.2fs. claimed=%d success=%d failed=%d due_remaining=%d",
+        duration,
+        len(user_ids),
+        success_count,
+        failed_count,
+        int(health_stats.get("last_due_user_count", 0)),
+    )
 
 def _build_assignment_item(event: dict) -> str:
     due_at = _to_utc_naive(event.get("due_at"))
