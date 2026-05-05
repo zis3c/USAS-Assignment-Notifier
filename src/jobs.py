@@ -249,11 +249,11 @@ async def poll_all_users(context) -> None:
                     """
                     SELECT COUNT(*)
                     FROM users
-                    WHERE active = 1
+                    WHERE active = :active
                       AND (next_poll_at IS NULL OR next_poll_at <= :now_utc)
                     """
                 ),
-                {"now_utc": now_utc},
+                {"now_utc": now_utc, "active": True},
             )
             health_stats["last_due_user_count"] = int(due_count_result.scalar() or 0)
         return
@@ -291,11 +291,11 @@ async def poll_all_users(context) -> None:
                 """
                 SELECT COUNT(*)
                 FROM users
-                WHERE active = 1
+                WHERE active = :active
                   AND (next_poll_at IS NULL OR next_poll_at <= :now_utc)
                 """
             ),
-            {"now_utc": now_utc},
+            {"now_utc": now_utc, "active": True},
         )
         health_stats["last_due_user_count"] = int(due_count_result.scalar() or 0)
 
