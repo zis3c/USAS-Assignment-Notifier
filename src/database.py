@@ -75,6 +75,9 @@ async def _migrate_db_postgres(conn) -> None:
             # or already applied with a slightly different type.
             logger.warning("PostgreSQL migration skipped for '%s': %s", sql, e)
 
+    # Keep SERIAL sequences aligned after imports that preserve explicit IDs.
+    await _sync_postgres_sequences(conn)
+
 
 async def _assert_postgres_required_columns(conn) -> None:
     """Fail fast in PostgreSQL mode if queue columns are missing."""
@@ -101,6 +104,38 @@ async def _assert_postgres_required_columns(conn) -> None:
             + ", ".join(missing)
             + ". Run DB migration before starting bot."
         )
+
+
+async def _sync_postgres_sequences(conn) -> None:
+    """Align PostgreSQL SERIAL sequences with current max primary keys."""
+    statements = [
+        """
+        SELECT setval(
+            pg_get_serial_sequence('users', 'id'),
+            COALESCE((SELECT MAX(id) FROM users), 1),
+            true
+        )
+        """,
+        """
+        SELECT setval(
+            pg_get_serial_sequence('user_events', 'id'),
+            COALESCE((SELECT MAX(id) FROM user_events), 1),
+            true
+        )
+        """,
+        """
+        SELECT setval(
+            pg_get_serial_sequence('system_settings', 'id'),
+            COALESCE((SELECT MAX(id) FROM system_settings), 1),
+            true
+        )
+        """,
+    ]
+    for sql in statements:
+        try:
+            await conn.execute(text(sql))
+        except Exception as e:
+            logger.warning("PostgreSQL sequence sync skipped for '%s': %s", sql.splitlines()[1].strip(), e)
 
 
 def _migrate_db_sqlite() -> None:
