@@ -43,7 +43,7 @@ PROMPT_PASSWORD = (
 
 REGISTERED_OK = "*Registration successful*, *{name}*!\n\nI'm now *monitoring* your *assignments*. Happy studying!"
 
-ALREADY_REGISTERED = "*Welcome back*, *{name}*!\n\n*Everything is up to date.* I will check your LMS every *1 hour* and keep an eye on your *assignments* for you."
+ALREADY_REGISTERED = "*Welcome back*, *{name}*!\n\n*Everything is up to date.* I check your LMS regularly and usually send new assignment alerts within about *1 hour*."
 
 LOGIN_FAILED = (
     "*❌ Login Failed*\n\n"
