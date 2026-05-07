@@ -28,7 +28,7 @@ LMS_ALLOW_INSECURE_SSL: bool = os.getenv("LMS_ALLOW_INSECURE_SSL", "false").stri
     "on",
 )
 LMS_SSL_FALLBACK_INSECURE_ON_ERROR: bool = os.getenv(
-    "LMS_SSL_FALLBACK_INSECURE_ON_ERROR", "true"
+    "LMS_SSL_FALLBACK_INSECURE_ON_ERROR", "false"
 ).strip().lower() in ("1", "true", "yes", "on")
 LMS_CA_BUNDLE: str = os.getenv("LMS_CA_BUNDLE", "").strip()
 
@@ -50,12 +50,17 @@ DAILY_LOG_HOUR: int = int(os.getenv("DAILY_LOG_HOUR", "8"))
 DAILY_LOG_MINUTE: int = int(os.getenv("DAILY_LOG_MINUTE", "0"))
 LOG_FILE_PATH: str = os.getenv("LOG_FILE_PATH", "logs/bot.log")
 ACTIVITY_LOG_PATH: str = os.getenv("ACTIVITY_LOG_PATH", "logs/activity.log")
+ACTIVITY_LOG_HASH_SALT: str = os.getenv("ACTIVITY_LOG_HASH_SALT", "").strip()
 # ── Rate Limiting ───────────────────────────────────────────────────────────
 USER_CHECK_INTERVAL = 300  # 5 minutes in seconds
 ADMIN_POLL_INTERVAL = 900  # 15 minutes in seconds
 GLOBAL_ANTI_SPAM_INTERVAL = 1.0  # 1 second between any interaction
 REGISTER_MAX_ATTEMPTS = int(os.getenv("REGISTER_MAX_ATTEMPTS", "5"))
 REGISTER_LOCKOUT_SECONDS = int(os.getenv("REGISTER_LOCKOUT_SECONDS", "900"))
+MAX_STUDENT_ID_LENGTH: int = int(os.getenv("MAX_STUDENT_ID_LENGTH", "16"))
+MAX_PASSWORD_LENGTH: int = int(os.getenv("MAX_PASSWORD_LENGTH", "128"))
+MAX_BROADCAST_TEXT_LENGTH: int = int(os.getenv("MAX_BROADCAST_TEXT_LENGTH", "1200"))
+MAX_TEXT_PAYLOAD_LENGTH: int = int(os.getenv("MAX_TEXT_PAYLOAD_LENGTH", "2000"))
 
 # ── Time & DB ─────────────────────────────────────────────────────────────────
 LOCAL_TZ = ZoneInfo("Asia/Kuala_Lumpur")

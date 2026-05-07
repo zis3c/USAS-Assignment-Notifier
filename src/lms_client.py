@@ -428,6 +428,10 @@ class LMSClient:
             return await self._fetch_events_with_ssl(ssl_context)
         except (aiohttp.ClientConnectorCertificateError, aiohttp.ClientSSLError, ssl.SSLError):
             if ssl_context is False or not config.LMS_SSL_FALLBACK_INSECURE_ON_ERROR:
+                logger.error(
+                    "LMS TLS verification failed for %s and insecure fallback is disabled.",
+                    self.student_id,
+                )
                 raise
             logger.warning(
                 "LMS TLS verification failed for %s. Retrying with insecure TLS fallback.",
@@ -458,6 +462,10 @@ class LMSClient:
             return await self._fetch_submission_statuses_with_ssl(unique_links, ssl_context)
         except (aiohttp.ClientConnectorCertificateError, aiohttp.ClientSSLError, ssl.SSLError):
             if ssl_context is False or not config.LMS_SSL_FALLBACK_INSECURE_ON_ERROR:
+                logger.error(
+                    "LMS TLS verification failed during submission checks for %s and insecure fallback is disabled.",
+                    self.student_id,
+                )
                 raise
             logger.warning(
                 "LMS TLS verification failed during submission checks for %s. "

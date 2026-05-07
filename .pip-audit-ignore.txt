@@ -1,0 +1,3 @@
+# One vulnerability ID per line, e.g.:
+# PYSEC-2024-0000
+# Add expiry + reason in PR description when adding temporary ignores.

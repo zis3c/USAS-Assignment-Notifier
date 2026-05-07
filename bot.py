@@ -45,7 +45,7 @@ from src.database import AsyncSessionLocal
 from src.models import User, SystemSettings
 from sqlalchemy import select
 from src.jobs import poll_all_users, send_daily_logs
-from src.logging_utils import log_activity
+from src.logging_utils import log_activity, user_ref
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 import os
@@ -84,6 +84,24 @@ def warn_sensitive_local_files() -> None:
                 "Ensure it is never copied into images/artifacts and rotate if exposed.",
                 filename,
             )
+    if config.LMS_ALLOW_INSECURE_SSL:
+        logger.warning(
+            "LMS_ALLOW_INSECURE_SSL=true. TLS certificate verification DISABLED for LMS traffic."
+        )
+    elif config.LMS_SSL_FALLBACK_INSECURE_ON_ERROR:
+        logger.warning(
+            "LMS_SSL_FALLBACK_INSECURE_ON_ERROR=true. TLS verification may downgrade on cert errors."
+        )
+
+
+def admin_only(handler):
+    """Wrapper to enforce ADMIN_ID before running admin command handlers."""
+    async def _wrapped(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        user = update.effective_user
+        if not user or user.id != config.ADMIN_ID:
+            return
+        await handler(update, context)
+    return _wrapped
 
 
 def _seconds_until_next_poll_tick(interval_seconds: int) -> float:
@@ -183,6 +201,9 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         or "unknown"
     )
     text = update.message.text
+    if len(text) > config.MAX_TEXT_PAYLOAD_LENGTH:
+        await update.message.reply_text("Input too long. Please send a shorter message.")
+        raise ApplicationHandlerStop()
     
     # --- Activity Logging (Sensitive Data Masking) ---
     safe_buttons = [
@@ -204,7 +225,8 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     else:
         safe_log_text = "[TEXT REDACTED]"
 
-    logger.info(f"👤 Activity: {actor_name} ({user_id}) -> {safe_log_text}")
+    actor_ref = user_ref(actor_name, user_id)
+    logger.info("Activity: %s -> %s", actor_ref, safe_log_text)
 
     # --- New Activity Log (Clean Format) ---
     action = "MSG"
@@ -272,9 +294,9 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("status", status))
     app.add_handler(CommandHandler("check", check_now))
-    app.add_handler(CommandHandler("logs", admin_logs))
-    app.add_handler(CommandHandler("health", admin_health))
-    app.add_handler(CommandHandler("admin", admin_panel))
+    app.add_handler(CommandHandler("logs", admin_only(admin_logs)))
+    app.add_handler(CommandHandler("health", admin_only(admin_health)))
+    app.add_handler(CommandHandler("admin", admin_only(admin_panel)))
 
     # Keyboard button taps
     app.add_handler(

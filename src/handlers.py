@@ -261,6 +261,12 @@ async def receive_student_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
     text = update.message.text.strip().upper()
     if _is_cancel(text):
         return await _cancel_registration(update, context)
+    if len(text) > config.MAX_STUDENT_ID_LENGTH:
+        await update.message.reply_text(
+            "Input too long. Please enter a valid Student ID.",
+            reply_markup=keyboards.cancel_menu(),
+        )
+        return ASK_STUDENT_ID
 
     context.user_data["student_id"] = text
 
@@ -291,6 +297,13 @@ async def receive_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return ConversationHandler.END
 
     text = update.message.text.strip()
+    if len(text) > config.MAX_PASSWORD_LENGTH:
+        context.user_data["is_typing_password"] = False
+        await update.message.reply_text(
+            "Input too long. Please try again with a shorter password.",
+            reply_markup=keyboards.cancel_menu(),
+        )
+        return ASK_PASSWORD
     # Reset password masking flag
     context.user_data["is_typing_password"] = False
 
@@ -711,7 +724,7 @@ async def admin_backup_db(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             )
     except Exception as e:
         logging.error(f"Backup failed: {e}")
-        await update.message.reply_text(f"⚠️ Backup failed: {e}")
+        await update.message.reply_text("⚠️ Backup failed. Please check server logs.")
     finally:
         if os.path.exists(backup_path):
             os.remove(backup_path)
@@ -730,6 +743,12 @@ async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 async def broadcast_preview(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Show message preview and ask for confirmation."""
     msg_text = update.message.text
+    if len(msg_text) > config.MAX_BROADCAST_TEXT_LENGTH:
+        await update.message.reply_text(
+            "Broadcast message too long. Please shorten it and try again.",
+            parse_mode="Markdown",
+        )
+        return BROADCAST_MSG
     context.user_data["broadcast_text"] = msg_text
     
     async with AsyncSessionLocal() as session:
@@ -787,7 +806,11 @@ async def admin_handle_matric_actions(update: Update, context: ContextTypes.DEFA
     if update.effective_user.id != config.ADMIN_ID:
         return
     
-    text = update.message.text.upper().strip()
+    raw_text = update.message.text.strip()
+    if len(raw_text) > config.MAX_TEXT_PAYLOAD_LENGTH:
+        await update.message.reply_text("Input too long. Please send a shorter value.")
+        return
+    text = raw_text.upper()
     
     import re
     if not re.match(r"^[A-Z]\d{8}$", text): # Case-insensitive check
