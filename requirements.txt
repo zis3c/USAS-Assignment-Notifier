@@ -1,16 +1,16 @@
 # Core Bot Dependencies
 python-telegram-bot==22.5
 APScheduler==3.10.4
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 SQLAlchemy==2.0.41
 aiosqlite==0.22.1
-cryptography==46.0.2
+cryptography==46.0.7
 psutil==5.9.8
 httpx==0.28.1
 beautifulsoup4==4.12.3
 pytz==2023.3
 tzdata==2025.2
-aiohttp==3.10.5
+aiohttp==3.13.4
 asyncpg==0.29.0
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.10
 certifi>=2024.2.2
