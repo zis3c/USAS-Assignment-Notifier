@@ -254,6 +254,8 @@ async def register_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         parse_mode="Markdown",
         reply_markup=keyboards.cancel_menu(),
     )
+    context.user_data["register_in_progress"] = True
+    context.user_data["awaiting_student_id"] = True
     return ASK_STUDENT_ID
 
 
@@ -269,6 +271,7 @@ async def receive_student_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return ASK_STUDENT_ID
 
     context.user_data["student_id"] = text
+    context.user_data["awaiting_student_id"] = False
 
     # Set flag to mask next message (password) in activity logs
     context.user_data["is_typing_password"] = True
@@ -286,6 +289,8 @@ async def receive_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     blocked_until = float(context.user_data.get("register_blocked_until", 0))
     if now_ts < blocked_until:
         context.user_data["is_typing_password"] = False
+        context.user_data["register_in_progress"] = False
+        context.user_data["awaiting_student_id"] = False
         remaining = int(blocked_until - now_ts)
         minutes, seconds = divmod(remaining, 60)
         time_limit_str = f"{minutes}m {seconds}s" if minutes > 0 else f"{seconds}s"
@@ -352,6 +357,8 @@ async def receive_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 parse_mode="Markdown",
                 reply_markup=await _main_menu_for_update(update),
             )
+            context.user_data["register_in_progress"] = False
+            context.user_data["awaiting_student_id"] = False
             return ConversationHandler.END
 
         await waiting.delete()
@@ -390,11 +397,15 @@ async def receive_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     reply_tmpl = strings.ALREADY_REGISTERED if is_update else strings.REGISTERED_OK
     reply = reply_tmpl.format(name=parsed_name or "Student")
     await update.message.reply_text(reply, parse_mode="Markdown", reply_markup=keyboards.main_menu(True))
+    context.user_data["register_in_progress"] = False
+    context.user_data["awaiting_student_id"] = False
     return ConversationHandler.END
 
 
 async def _cancel_registration(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["is_typing_password"] = False
+    context.user_data["register_in_progress"] = False
+    context.user_data["awaiting_student_id"] = False
     await update.message.reply_text(
         strings.REGISTER_CANCELLED,
         parse_mode="Markdown",

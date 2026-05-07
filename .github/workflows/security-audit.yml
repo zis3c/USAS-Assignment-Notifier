@@ -9,19 +9,30 @@ on:
 jobs:
   pip-audit:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
       - name: Install pip-audit
         run: |
           python -m pip install --upgrade pip
-          pip install pip-audit
+          python -m pip install pip-audit
 
       - name: Run dependency CVE audit
-        run: pip-audit -r requirements.txt --ignore-vuln-file .pip-audit-ignore.txt
+        shell: bash
+        run: |
+          IGNORE_ARGS=()
+          while IFS= read -r line || [ -n "$line" ]; do
+            vuln_id="$(echo "$line" | xargs)"
+            if [ -n "$vuln_id" ] && [[ ! "$vuln_id" =~ ^# ]]; then
+              IGNORE_ARGS+=(--ignore-vuln "$vuln_id")
+            fi
+          done < .pip-audit-ignore.txt
+          pip-audit -r requirements.txt "${IGNORE_ARGS[@]}"

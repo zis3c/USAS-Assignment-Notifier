@@ -216,17 +216,21 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     is_command = text.startswith('/')
     command_name = text.split()[0] if is_command else ""
     is_password_step = bool(context.user_data.get("is_typing_password"))
+    is_registering = bool(context.user_data.get("register_in_progress"))
+    awaiting_student_id = bool(context.user_data.get("awaiting_student_id"))
     if is_password_step:
-        safe_log_text = "[PASSWORD MASKED]"
+        safe_log_text = "[REGISTER_PASSWORD_MASKED]"
+    elif is_registering and awaiting_student_id and not is_command:
+        safe_log_text = "[REGISTER_STUDENT_ID_MASKED]"
     elif text in safe_buttons:
         safe_log_text = f"[BUTTON] {text}"
     elif is_command:
         safe_log_text = f"[COMMAND] {command_name}"
     else:
-        safe_log_text = "[TEXT REDACTED]"
+        safe_log_text = text
 
     actor_ref = user_ref(actor_name, user_id)
-    logger.info("Activity: %s -> %s", actor_ref, safe_log_text)
+    logger.info("Activity: user_id=%s ref=%s -> %s", user_id, actor_ref, safe_log_text)
 
     # --- New Activity Log (Clean Format) ---
     action = "MSG"
@@ -241,13 +245,16 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     elif is_password_step:
         action = "PASSWORD_INPUT"
         details = "[MASKED]"
+    elif is_registering and awaiting_student_id:
+        action = "REGISTER_STUDENT_ID_INPUT"
+        details = "[MASKED]"
     else:
         action = "TEXT_INPUT"
-        details = "[REDACTED]"
+        details = text
 
     # Use first_name for the log as requested (Radzi)
     first_name = update.effective_user.first_name or "Unknown"
-    log_activity(first_name, user_id, action, details)
+    log_activity(first_name, user_id, action, f"user_id={user_id} | {details}")
 
     # 1. Anti-Spam (1 second)
     now = datetime.now(timezone.utc).timestamp()
