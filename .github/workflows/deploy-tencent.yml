@@ -1,4 +1,4 @@
-name: Deploy To DigitalOcean
+name: Deploy To Tencent Cloud
 
 on:
   push:
@@ -17,9 +17,9 @@ jobs:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         with:
-          host: ${{ secrets.DROPLET_HOST }}
-          username: ${{ secrets.DROPLET_USER }}
-          key: ${{ secrets.DROPLET_SSH_KEY }}
+          host: ${{ secrets.TENCENT_HOST }}
+          username: ${{ secrets.TENCENT_USER }}
+          key: ${{ secrets.TENCENT_SSH_KEY }}
           script_stop: true
           script: |
             set -euo pipefail

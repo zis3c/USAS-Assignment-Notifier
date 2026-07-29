@@ -107,14 +107,14 @@ Database:
 - `MIGRATION_BATCH_SIZE` - Batch size for SQLite -> PostgreSQL migration script
 
 Server runtime:
-- `PORT` - Local health endpoint port (set `10001` in DigitalOcean setup)
-- `PUBLIC_BASE_URL` - Optional public URL for health self-ping (leave empty on DigitalOcean polling mode)
+- `PORT` - Local health endpoint port (set `10001` in Tencent setup)
+- `PUBLIC_BASE_URL` - Optional public URL for health self-ping
 
-## Deploy to DigitalOcean (Recommended)
+## Deploy to Tencent Cloud (Recommended)
 
-This project is currently deployed on a DigitalOcean Droplet using polling + `systemd`.
+This project is currently deployed on a Tencent Cloud CVM using polling + `systemd`.
 
-1. Clone the repo on the droplet and install dependencies.
+1. Clone the repo on the server and install dependencies.
 2. Copy `.env` (without committing secrets).
 3. Keep `PUBLIC_BASE_URL` empty for polling mode.
 4. Run with a systemd service, for example:
@@ -128,14 +128,14 @@ This project is currently deployed on a DigitalOcean Droplet using polling + `sy
 
 ## Auto Deploy (GitHub Actions)
 
-This repository includes `.github/workflows/deploy-digitalocean.yml`.
-Every push to `main` triggers automatic deployment to the droplet.
+This repository includes `.github/workflows/deploy-tencent.yml`.
+Every push to `main` triggers automatic deployment to the server.
 For full setup and troubleshooting, see [AUTO_DEPLOY.md](AUTO_DEPLOY.md).
 
 Required repository secrets:
-- `DROPLET_HOST` (example: `203.0.113.10`)
-- `DROPLET_USER` (recommended: `deploy`)
-- `DROPLET_SSH_KEY` (private SSH key for the deploy user)
+- `TENCENT_HOST` (example: `your.server.ip.or.dns`)
+- `TENCENT_USER` (recommended: `deploy`)
+- `TENCENT_SSH_KEY` (private SSH key for the deploy user)
 
 Server assumptions:
 - App path: `/opt/assignment-notifier`

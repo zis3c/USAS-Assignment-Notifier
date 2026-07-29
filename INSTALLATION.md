@@ -104,9 +104,9 @@ Run:
 docker run --env-file .env -p 10000:10000 usas-due-bot
 ```
 
-## DigitalOcean Deployment (Recommended)
+## Tencent Cloud Deployment (Recommended)
 
-1. Create `/opt/assignment-notifier` on your droplet and clone this repository.
+1. Create `/opt/assignment-notifier` on your Tencent Cloud CVM and clone this repository.
 2. Create and activate a virtual environment, then install dependencies:
    - `python3 -m venv .venv`
    - `. .venv/bin/activate`
