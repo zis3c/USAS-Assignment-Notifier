@@ -8,7 +8,13 @@
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 ![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)
 
-A secure async Telegram bot for USAS students that monitors LMS assignments and sends deadline reminders (3 days, 2 days, within 24 hours).
+<div align="center">
+  <img src="preview.PNG" alt="USAS Assignment Notifier Preview" width="200">
+</div>
+
+[**Try it live on Telegram**](https://t.me/usas_duebot) | [**Video tutorial on YouTube**](https://www.youtube.com/watch?v=Szl-VaEdc08&pp=ygULdXNhcyBkdWVib3Q%3D)
+
+A secure async Telegram bot for USAS students that monitors LMS assignments and sends deadline reminders at 3 days, 2 days, and within 24 hours.
 
 > [!NOTE]
 > **Security-first design**: LMS credentials and session cookies are encrypted with Fernet before storage, and plaintext credentials are only used in-memory during login.
