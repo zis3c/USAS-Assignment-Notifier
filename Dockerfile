@@ -24,8 +24,8 @@ COPY . .
 RUN mkdir -p data logs
 
 # Use a non-root user for security
-RUN useradd -m botuser && chown -R botuser:botuser /app
-USER botuser
+RUN useradd -u 10001 -m botuser && chown -R 10001:10001 /app
+USER 10001:10001
 
 # Add healthcheck (checks if the bot process is alive)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
