@@ -9,7 +9,7 @@ psutil==7.2.2
 httpx==0.28.1
 beautifulsoup4==4.15.0
 pytz==2026.5
-tzdata==2025.2
+tzdata==2026.6
 aiohttp==3.14.5
 asyncpg==0.32.0
 psycopg2-binary==2.9.13
