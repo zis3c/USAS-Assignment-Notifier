@@ -1,5 +1,5 @@
 # Use a slim Python image for production
-FROM python:3.10-slim
+FROM python:3.15-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
