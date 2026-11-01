@@ -65,6 +65,7 @@ Set at minimum in `.env`:
 - `ADMIN_ID` (required for daily log auto-send)
 
 Recommended security settings:
+
 - Keep `LMS_ALLOW_INSECURE_SSL=false` (default).
 - If your environment needs custom trust roots, set `LMS_CA_BUNDLE` to a valid CA bundle path.
 
@@ -96,6 +97,7 @@ docker build -t usas-due-bot .
 ```
 
 Security note:
+
 - `.dockerignore` excludes `.env`, `service_account.json`, `data/`, and `logs/` to avoid leaking secrets into images.
 
 Run:
@@ -123,5 +125,3 @@ docker run --env-file .env -p 10000:10000 usas-due-bot
 - Daily logs not sent: verify `ADMIN_ID` is correct.
 - LMS login failures: verify matric/password and LMS availability.
 - Windows package build issues: use Python 3.10/3.11 virtual environment.
-
-

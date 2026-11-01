@@ -190,11 +190,21 @@ def migrate_system_settings(sql_rows: Sequence[sqlite3.Row], conn) -> None:
     conn.commit()
 
 
+SELECT_ALL_SQL = {
+    "users": "SELECT * FROM users ORDER BY id",
+    "courses": "SELECT * FROM courses ORDER BY id",
+    "assignments": "SELECT * FROM assignments ORDER BY id",
+    "notifications_sent": "SELECT * FROM notifications_sent ORDER BY id",
+}
+
+
 def fetch_sqlite_rows(sqlite_path: str, table: str) -> Sequence[sqlite3.Row]:
+    if table not in SELECT_ALL_SQL:
+        raise ValueError(f"Unsupported table: {table}")
     conn = sqlite3.connect(sqlite_path)
     conn.row_factory = sqlite3.Row
     try:
-        return conn.execute(f"SELECT * FROM {table} ORDER BY id").fetchall()
+        return conn.execute(SELECT_ALL_SQL[table]).fetchall()
     finally:
         conn.close()
 

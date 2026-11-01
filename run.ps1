@@ -1,4 +1,4 @@
-# Assignment Notifier — PowerShell launcher
+# Assignment Notifier - PowerShell launcher
 # Usage: .\run.ps1
 
 $ErrorActionPreference = "Stop"

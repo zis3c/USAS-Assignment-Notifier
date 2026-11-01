@@ -358,7 +358,7 @@ async def start_web_server() -> None:
     
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", config.PORT)
+    site = web.TCPSite(runner, "0.0.0.0", config.PORT)  # nosec B104
     await site.start()
     logger.info(f"🌐 Web Server started on port {config.PORT}")
 

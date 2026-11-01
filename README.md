@@ -39,12 +39,14 @@ A secure async Telegram bot for USAS students that monitors LMS assignments and 
 ## Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/zis3c/USAS-Assignment-Notifier.git
    cd USAS-Assignment-Notifier
    ```
 
 2. **Create and activate virtual environment**
+
    ```bash
    python -m venv .venv
    # Windows PowerShell
@@ -54,27 +56,34 @@ A secure async Telegram bot for USAS students that monitors LMS assignments and 
    ```
 
 3. **Install dependencies**
+
    ```bash
    pip install -r requirements.txt
    ```
 
 4. **Configure environment**
+
    ```bash
    copy .env.example .env   # Windows
    # cp .env.example .env   # Linux/macOS
    ```
 
 5. **Generate `FERNET_KEY`**
+
    ```bash
    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
    ```
+
    Paste that value into `.env`.
 
 6. **Run bot**
+
    ```bash
    python bot.py
    ```
+
    or:
+
    ```powershell
    .\run.ps1
    ```
@@ -82,6 +91,7 @@ A secure async Telegram bot for USAS students that monitors LMS assignments and 
 ## Environment Variables
 
 Core:
+
 - `BOT_TOKEN` - Telegram bot token from [@BotFather](https://t.me/BotFather)
 - `FERNET_KEY` - Encryption key for LMS credentials/cookies
 - `LMS_BASE_URL` - Default: `https://lms.usas.edu.my`
@@ -89,6 +99,7 @@ Core:
 - `LMS_CA_BUNDLE` - Optional custom CA bundle path for LMS TLS verification
 
 Polling and reminders:
+
 - `POLL_INTERVAL_SECONDS` - Auto scan interval (default `3600`)
 - `MAX_CONCURRENCY` - Concurrent user polling limit
 - `POLL_BATCH_SIZE` - Max due users claimed per poll tick
@@ -102,17 +113,20 @@ Polling and reminders:
 - `REGISTER_LOCKOUT_SECONDS` - Lockout duration after too many failed attempts
 
 Admin and logs:
+
 - `ADMIN_ID` - Telegram numeric user ID of admin
 - `DAILY_LOG_HOUR` / `DAILY_LOG_MINUTE` - Daily activity report time (Asia/Kuala_Lumpur)
 - `LOG_FILE_PATH` - Bot runtime log path
 - `ACTIVITY_LOG_PATH` - User activity log path
 
 Database:
+
 - `DB_PATH` - SQLite path for local mode
 - `DATABASE_URL` - PostgreSQL URL (uses asyncpg dialect automatically)
 - `MIGRATION_BATCH_SIZE` - Batch size for SQLite -> PostgreSQL migration script
 
 Server runtime:
+
 - `PORT` - Local health endpoint port (set `10001` in Tencent setup)
 - `PUBLIC_BASE_URL` - Optional public URL for health self-ping
 
@@ -127,6 +141,7 @@ This project is currently deployed on a Tencent Cloud CVM using polling + `syste
    - `WorkingDirectory=/opt/assignment-notifier`
    - `ExecStart=/opt/assignment-notifier/.venv/bin/python /opt/assignment-notifier/bot.py`
 5. Enable service:
+
    ```bash
    sudo systemctl daemon-reload
    sudo systemctl enable --now assignment-notifier
@@ -139,11 +154,13 @@ Every push to `main` triggers automatic deployment to the server.
 For full setup and troubleshooting, see [AUTO_DEPLOY.md](AUTO_DEPLOY.md).
 
 Required repository secrets:
+
 - `TENCENT_HOST` (example: `your.server.ip.or.dns`)
 - `TENCENT_USER` (recommended: `deploy`)
 - `TENCENT_SSH_KEY` (private SSH key for the deploy user)
 
 Server assumptions:
+
 - App path: `/opt/assignment-notifier`
 - Service name: `assignment-notifier`
 - Deploy user can run `sudo systemctl restart assignment-notifier`
@@ -175,7 +192,7 @@ USAS-Assignment-Notifier/
 ## Commands
 
 | Command | Description |
-|:--------|:------------|
+| :-------- | :------------ |
 | `/start` | Open main menu |
 | `/register` | Link LMS account |
 | `/status` | Show linked account and last scan |
@@ -187,7 +204,7 @@ USAS-Assignment-Notifier/
 ### Admin Commands
 
 | Command | Description |
-|:--------|:------------|
+| :-------- | :------------ |
 | `/admin` | Open admin dashboard |
 | `/logs` | Download activity log file |
 
@@ -204,6 +221,7 @@ USAS-Assignment-Notifier/
 6. Before sending pending reminders, bot checks assignment page status to skip already submitted work.
 
 Logout behavior:
+
 - `/logout` removes the user record and linked assignment metadata from the database.
 
 ## Troubleshooting
@@ -226,5 +244,3 @@ Logout behavior:
 - [LICENSE](LICENSE)
 
 <center>Built with 🔥 by <b>@zis3c</b></center>
-
-

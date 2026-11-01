@@ -13,6 +13,7 @@ Thanks for helping improve **USAS Assignment Notifier**.
 
 1. Fork and clone the repository.
 2. Create a virtual environment and install dependencies:
+
    ```bash
    python -m venv .venv
    # Windows
@@ -21,11 +22,15 @@ Thanks for helping improve **USAS Assignment Notifier**.
    # source .venv/bin/activate
    pip install -r requirements.txt
    ```
+
 3. Create local config:
+
    ```bash
    copy .env.example .env
    ```
+
 4. Run the bot:
+
    ```bash
    python bot.py
    ```
@@ -65,4 +70,3 @@ When opening an issue, include:
 - Steps to reproduce
 - Logs or screenshots (if safe)
 - Environment details (OS, Python version, deployment target)
-

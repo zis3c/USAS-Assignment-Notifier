@@ -26,6 +26,7 @@ python scripts/verify_migration.py --sqlite-path data/lms_notifier.db
 ```
 
 Hard gates:
+
 - table counts match
 - verification script passes
 - no null-constraint errors
@@ -42,6 +43,7 @@ sudo journalctl -u assignment-notifier -n 120 --no-pager
 ```
 
 Check:
+
 - bot starts cleanly
 - `/status` works
 - manual `/check` works
@@ -58,5 +60,6 @@ sudo journalctl -u assignment-notifier -n 120 --no-pager
 ```
 
 Notes:
+
 - Do not modify backup SQLite file during rollback window.
 - Keep PostgreSQL snapshot for investigation.

@@ -40,4 +40,3 @@ For user-facing bot support, you can also reach the team via Telegram: `@STEMUSA
 
 - Third-party services (Telegram API, LMS platform, Google Sheets API, hosting providers) are out of direct maintainer control.
 - Misconfiguration of deployment secrets is considered an operational risk and should be handled urgently.
-

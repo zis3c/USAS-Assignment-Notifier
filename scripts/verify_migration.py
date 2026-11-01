@@ -29,13 +29,32 @@ def postgres_dsn_from_url(database_url: str) -> str:
     return database_url
 
 
+COUNT_SQL = {
+    "users": "SELECT COUNT(*) FROM users",
+    "courses": "SELECT COUNT(*) FROM courses",
+    "assignments": "SELECT COUNT(*) FROM assignments",
+    "notifications_sent": "SELECT COUNT(*) FROM notifications_sent",
+}
+
+SELECT_ID_SQL = {
+    "users": "SELECT id FROM users ORDER BY id",
+    "courses": "SELECT id FROM courses ORDER BY id",
+    "assignments": "SELECT id FROM assignments ORDER BY id",
+    "notifications_sent": "SELECT id FROM notifications_sent ORDER BY id",
+}
+
+
 def sqlite_count(conn: sqlite3.Connection, table: str) -> int:
-    return int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+    if table not in COUNT_SQL:
+        raise ValueError(f"Unsupported table: {table}")
+    return int(conn.execute(COUNT_SQL[table]).fetchone()[0])
 
 
 def postgres_count(conn, table: str) -> int:
+    if table not in COUNT_SQL:
+        raise ValueError(f"Unsupported table: {table}")
     with conn.cursor() as cur:
-        cur.execute(f"SELECT COUNT(*) FROM {table}")
+        cur.execute(COUNT_SQL[table])
         return int(cur.fetchone()[0])
 
 
@@ -46,7 +65,9 @@ def hash_bytes(value: bytes | None) -> str:
 
 
 def sample_ids(sqlite_conn: sqlite3.Connection, table: str, sample_size: int) -> list[int]:
-    rows = sqlite_conn.execute(f"SELECT id FROM {table} ORDER BY id").fetchall()
+    if table not in SELECT_ID_SQL:
+        raise ValueError(f"Unsupported table: {table}")
+    rows = sqlite_conn.execute(SELECT_ID_SQL[table]).fetchall()
     ids = [int(row[0]) for row in rows]
     if len(ids) <= sample_size:
         return ids
