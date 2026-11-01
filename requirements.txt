@@ -13,4 +13,4 @@ tzdata==2025.2
 aiohttp==3.14.5
 asyncpg==0.30.0
 psycopg2-binary==2.9.10
-certifi>=2024.2.2
+certifi>=2026.10.23
