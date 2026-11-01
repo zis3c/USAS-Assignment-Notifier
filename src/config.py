@@ -9,17 +9,14 @@ import certifi
 
 load_dotenv()
 
-# ── Telegram ──────────────────────────────────────────────────────────────────
 BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN is required. Set it in your .env file.")
 
-# ── Encryption ────────────────────────────────────────────────────────────────
 FERNET_KEY: str = os.getenv("FERNET_KEY", "")
 if not FERNET_KEY:
     raise RuntimeError("FERNET_KEY is required. Set it in your .env file.")
 
-# ── LMS ───────────────────────────────────────────────────────────────────────
 LMS_BASE_URL: str = os.getenv("LMS_BASE_URL", "https://lms.usas.edu.my").rstrip("/")
 LMS_ALLOW_INSECURE_SSL: bool = os.getenv("LMS_ALLOW_INSECURE_SSL", "false").strip().lower() in (
     "1",
@@ -32,7 +29,6 @@ LMS_SSL_FALLBACK_INSECURE_ON_ERROR: bool = os.getenv(
 ).strip().lower() in ("1", "true", "yes", "on")
 LMS_CA_BUNDLE: str = os.getenv("LMS_CA_BUNDLE", "").strip()
 
-# ── Polling & Admin ───────────────────────────────────────────────────────────
 POLL_INTERVAL_SECONDS: int = int(os.getenv("POLL_INTERVAL_SECONDS", "3600"))
 MAX_CONCURRENCY: int = int(os.getenv("MAX_CONCURRENCY", "10"))
 POLL_BATCH_SIZE: int = int(os.getenv("POLL_BATCH_SIZE", "50"))
@@ -51,10 +47,10 @@ DAILY_LOG_MINUTE: int = int(os.getenv("DAILY_LOG_MINUTE", "0"))
 LOG_FILE_PATH: str = os.getenv("LOG_FILE_PATH", "logs/bot.log")
 ACTIVITY_LOG_PATH: str = os.getenv("ACTIVITY_LOG_PATH", "logs/activity.log")
 ACTIVITY_LOG_HASH_SALT: str = os.getenv("ACTIVITY_LOG_HASH_SALT", "").strip()
-# ── Rate Limiting ───────────────────────────────────────────────────────────
-USER_CHECK_INTERVAL = 300  # 5 minutes in seconds
-ADMIN_POLL_INTERVAL = 900  # 15 minutes in seconds
-GLOBAL_ANTI_SPAM_INTERVAL = 1.0  # 1 second between any interaction
+
+USER_CHECK_INTERVAL = 300
+ADMIN_POLL_INTERVAL = 900
+GLOBAL_ANTI_SPAM_INTERVAL = 1.0
 REGISTER_MAX_ATTEMPTS = int(os.getenv("REGISTER_MAX_ATTEMPTS", "5"))
 REGISTER_LOCKOUT_SECONDS = int(os.getenv("REGISTER_LOCKOUT_SECONDS", "900"))
 MAX_STUDENT_ID_LENGTH: int = int(os.getenv("MAX_STUDENT_ID_LENGTH", "16"))
@@ -62,16 +58,14 @@ MAX_PASSWORD_LENGTH: int = int(os.getenv("MAX_PASSWORD_LENGTH", "128"))
 MAX_BROADCAST_TEXT_LENGTH: int = int(os.getenv("MAX_BROADCAST_TEXT_LENGTH", "1200"))
 MAX_TEXT_PAYLOAD_LENGTH: int = int(os.getenv("MAX_TEXT_PAYLOAD_LENGTH", "2000"))
 
-# ── Time & DB ─────────────────────────────────────────────────────────────────
 LOCAL_TZ = ZoneInfo("Asia/Kuala_Lumpur")
 DB_PATH: str = os.getenv("DB_PATH", "data/lms_notifier.db")
-DATABASE_URL: str = os.getenv("DATABASE_URL", "") # Optional PostgreSQL URL (asyncpg)
+DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 MIGRATION_BATCH_SIZE: int = int(os.getenv("MIGRATION_BATCH_SIZE", "500"))
 
-# ── Web Runtime & Self-Pinger ─────────────────────────────────────────────────
 PORT: int = int(os.getenv("PORT", "10000"))
-PUBLIC_BASE_URL: str = os.getenv("PUBLIC_BASE_URL", "").rstrip("/") # e.g. https://bot.example.com
-SELF_PING_INTERVAL: int = 14 * 60 # 14 minutes
+PUBLIC_BASE_URL: str = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+SELF_PING_INTERVAL: int = 14 * 60
 
 
 def _resolve_ca_bundle() -> Optional[str]:

@@ -1,1 +1,1 @@
-# Assignment Notifier : src package
+"""Assignment Notifier package."""

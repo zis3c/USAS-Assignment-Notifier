@@ -1,6 +1,5 @@
 """All user-facing message strings for the Assignment Notifier bot."""
 
-# ── Welcome & Help ────────────────────────────────────────────────────────────
 
 WELCOME = (
     "*USAS Assignment Notifier*\n\n"
@@ -26,7 +25,6 @@ HELP_DETAIL = (
     "*Video Tutorial:* [How to use USAS Duebot](https://youtu.be/Szl-VaEdc08)"
 )
 
-# ── Registration Flow ─────────────────────────────────────────────────────────
 
 PROMPT_STUDENT_ID = (
     "Step 1/2\n\n"
@@ -40,7 +38,6 @@ PROMPT_PASSWORD = (
     "Please enter your *LMS Password*:"
 )
 
-# -- Errors & Validation -------------------------------------------------------
 
 REGISTERED_OK = "*Welcome back*, *{name}*!\n\nYou’re all set. I’ll watch your assignments and usually notify you of new ones within about *1 hour*. 😉"
 
@@ -56,7 +53,6 @@ REGISTER_CANCELLED = (
     "No changes were *saved*. Use the *menu* to start over."
 )
 
-# -- Logout --------------------------------------------------------------------
 
 UNREGISTER_CONFIRM = (
     "*Logout* (*{matric}*)?\n\n"
@@ -78,7 +74,6 @@ UNREGISTER_CANCELLED = (
     "No changes made. You are still *securely bound*."
 )
 
-# ── Status ────────────────────────────────────────────────────────────────────
 
 STATUS_OK = (
     "*Account Status*\n\n"
@@ -96,7 +91,6 @@ STATUS_NEVER_CHECKED = (
     "Timezone: *Asia/Kuala_Lumpur*"
 )
 
-# ── Manual Check ──────────────────────────────────────────────────────────────
 
 CHECK_RUNNING = (
     "*🔎 Scan Started*\n\n"
@@ -178,7 +172,6 @@ COUNTDOWN_QUOTES_1D = [
     "KALAU KAU MASIH TAK START, MEMANG KAU YANG PILIH UNTUK FAIL.",
 ]
 
-# ── Assignment Notification Card ──────────────────────────────────────────────
 
 NEW_ASSIGNMENT_HEADER = "📚 <b>New Assignment</b>"
 PENDING_ASSIGNMENT_HEADER = "📌 <b>Pending Assignment Reminder</b>"
@@ -193,7 +186,6 @@ ASSIGNMENT_SUBJECT_LINE = "Subject: <b>{subject}</b>\n"
 ASSIGNMENT_DUE_LINE = "Due: <b>{due}</b>\n"
 ASSIGNMENT_LINK_LINE = "Link: <a href=\"{link}\">Assignment</a>"
 
-# ── Admin Dashboard ───────────────────────────────────────────────────────────
 
 ADMIN_WELCOME = (
     "*Admin Dashboard*\n\n"
@@ -211,7 +203,6 @@ ADMIN_USER_LINE = "{index}. `{matric}` : `{chat_id}`\n"
 
 ADMIN_POLL_STARTED = "*🔄 Poll Triggered*\n\nBackground check for all users has started."
 
-# ── Advanced Admin Tools ───────────────────────────────────────────────────
 
 ADMIN_FIND_USER_PROMPT = "*🔍 Find User*\n\nPlease enter the *Matric ID* you want to search for:"
 ADMIN_USER_NOT_FOUND = "*❌ User not found.*"
@@ -255,11 +246,9 @@ ADMIN_HEALTH = (
     "Active users: *{active_users}*"
 )
 
-# ── Rate Limiting ───────────────────────────────────────────────────────────
 
 RATE_LIMIT_USER = "⏳ *Please wait!* You can check again in *{remaining}*.\n\nTo prevent server blocks, manual checks are limited to once every 5 minutes."
 RATE_LIMIT_ADMIN = "⏳ *Cooling down...*\n\nThe global poll was recently triggered. Please wait *{remaining}* before triggering it again."
 
-# ── Generic ───────────────────────────────────────────────────────────────────
 
 SOMETHING_WENT_WRONG = "*⚠️ Something went wrong.* Please try again later."

@@ -510,18 +510,12 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
                 stage_days = _countdown_stage_days(due_at, now_utc)
                 if stage_days in COUNTDOWN_STAGE_FIELD:
                     stage_field = COUNTDOWN_STAGE_FIELD[stage_days]
-                    # For auto polling, send once per stage (DB-deduped).
-                    # For manual Check Now, allow re-showing countdown reminders
-                    # so users always get the full pending assignment card.
+                    # Auto-polling deduplicates per stage; manual Check Now re-sends so the pending card is complete.
                     if force_pending_reminders or getattr(current, stage_field) is None:
                         countdown_events_by_stage[stage_days].append(event)
-                    # In countdown windows, motivational reminders replace normal pending reminders.
                     continue
 
-                # Avoid auto-spam: generic pending reminders are manual-only.
-                # Auto polling should notify for:
-                # 1) new assignments, and
-                # 2) countdown stages (3d/2d/rolling-24h) only.
+                # Generic pending reminders are manual-only so auto-polling only alerts on new items and 3d/2d/24h stages.
                 if force_pending_reminders:
                     reminder_events.append(event)
 
@@ -610,12 +604,10 @@ async def send_daily_logs(context) -> None:
     date_str = yesterday.strftime('%Y-%m-%d')
 
     try:
-        # Check if file has content
         if os.path.getsize(config.ACTIVITY_LOG_PATH) == 0:
             logger.info("Daily log job skipped: %s is empty.", config.ACTIVITY_LOG_PATH)
             return
 
-        # Send the file
         with open(config.ACTIVITY_LOG_PATH, "rb") as f:
             await context.bot.send_document(
                 chat_id=config.ADMIN_ID,

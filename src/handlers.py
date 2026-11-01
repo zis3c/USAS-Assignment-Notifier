@@ -35,11 +35,8 @@ def _seed_next_poll_at() -> datetime:
     jitter = random.randint(-config.POLL_JITTER_SECONDS, config.POLL_JITTER_SECONDS)
     return get_utc_now() + timedelta(seconds=max(60, base + jitter))
 
-# ── Conversation states ───────────────────────────────────────────────────────
 ASK_STUDENT_ID, ASK_PASSWORD = range(2)
 CONFIRM_UNREGISTER = 10
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _is_cancel(text: str) -> bool:
     return text.strip() in ("Cancel", "/cancel", "cancel")
@@ -76,20 +73,13 @@ async def check_banned(user_id: int) -> bool:
         return is_banned if is_banned is not None else False
 
 
-# ── /start ────────────────────────────────────────────────────────────────────
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
-    # Global checks (anti-spam, maintenance, ban) are handled in bot.py
-
     await update.message.reply_text(
         strings.WELCOME,
         parse_mode="Markdown",
         reply_markup=await _main_menu_for_update(update),
     )
-
-
-# ── /help  &  ❓ Help button ──────────────────────────────────────────────────
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
@@ -131,12 +121,8 @@ async def help_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     )
 
 
-# ── /status  &  📊 Status button ─────────────────────────────────────────────
-
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show the currently linked academic account."""
-    # Global checks handled in bot.py
-
     chat_id = str(update.message.chat_id)
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(User).where(User.chat_id == chat_id))
@@ -169,11 +155,8 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
 
-# ── /check  &  📋 Check Now button ───────────────────────────────────────────
-
 async def check_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Manually trigger an assignment check for the user."""
-    # Anti-spam for Check Now (5 min) is still specific to this command
     now = datetime.now(timezone.utc).timestamp()
     last_check = context.user_data.get("last_check_time", 0)
     if now - last_check < config.USER_CHECK_INTERVAL:
@@ -228,17 +211,12 @@ async def check_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         msg = strings.CHECK_NO_NEW
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=keyboards.main_menu(True))
     
-    # Log the result
     log_activity(
         update.effective_user.first_name or "Unknown",
         update.effective_user.id,
         "CHECK_MANUAL",
         f"Matric: {user_id} | New: {result.new_count} | Pending: {result.pending_count} | Reminder: {result.reminder_count}"
     )
-
-
-
-# -- /register  &  🔐 Register flow ───────────────────────────────────────────
 
 async def register_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Start the registration conversation."""
@@ -332,13 +310,10 @@ async def receive_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         user = result.scalars().first()
         is_update = user is not None
 
-        # --- VALIDATION STEP ---
-        # Before saving, try a real login to verify credentials
         waiting = await update.message.reply_text("⏳ *Verifying credentials...*", parse_mode="Markdown")
-        client = LMSClient(student_id, text, None)  # Verifying with fresh login
+        client = LMSClient(student_id, text, None)
         try:
             fetch_result = await client.fetch_events()
-            # A successful login will contain a Moodle session key (sesskey)
             if not fetch_result.dashboard_html or not extract_sesskey(fetch_result.dashboard_html):
                  raise Exception("Login failed (no sesskey found)")
         except Exception as e:
@@ -413,8 +388,6 @@ async def _cancel_registration(update: Update, context: ContextTypes.DEFAULT_TYP
     return ConversationHandler.END
 
 
-# -- Logout flow ---------------------------------------------------------------
-
 async def unregister_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     chat_id = str(update.message.chat_id)
     async with AsyncSessionLocal() as session:
@@ -462,8 +435,6 @@ async def unregister_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return ConversationHandler.END
 
 
-# ── Admin Commands ───────────────────────────────────────────────────────────
-
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Entry point for the admin dashboard."""
     if update.effective_user.id != config.ADMIN_ID:
@@ -507,7 +478,6 @@ async def admin_user_list(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.message.reply_text("No users registered yet.")
         return
 
-    # Group by student_id
     grouped = {}
     for u in users:
         if u.student_id not in grouped:
@@ -519,7 +489,7 @@ async def admin_user_list(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         chat_str = ", ".join([f"`{cid}`" for cid in chat_ids])
         msg += f"{i}. {matric} : {chat_str}\n"
 
-    # Simple split if too long (Telegram limit ~4096 chars)
+    # Chunk at 4000 characters to stay under Telegram's 4096-character message limit.
     if len(msg) > 4000:
         for i in range(0, len(msg), 4000):
             await update.message.reply_text(msg[i : i + 4000], parse_mode="Markdown")
@@ -532,7 +502,6 @@ async def admin_poll_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if update.effective_user.id != config.ADMIN_ID:
         return
 
-    # Anti-spam / Rate limit (Global)
     now = datetime.now(timezone.utc).timestamp()
     last_poll = context.bot_data.get("last_global_poll_time", 0)
     if now - last_poll < config.ADMIN_POLL_INTERVAL:
@@ -548,7 +517,6 @@ async def admin_poll_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     context.bot_data["last_global_poll_time"] = now
     from src.jobs import poll_all_users
     await update.message.reply_text(strings.ADMIN_POLL_STARTED, parse_mode="Markdown")
-    # Run in background via job queue or just await if it's small
     asyncio.create_task(poll_all_users(context))
 
 
@@ -604,13 +572,10 @@ async def admin_health(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         reply_markup=keyboards.admin_menu(),
     )
 
-# ── Keyboard button router ────────────────────────────────────────────────────
-
 async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Route all main-menu and admin-menu keyboard button taps."""
     text = update.message.text
     
-    # Common tools
     if text == "Check Now":
         await check_now(update, context)
     elif text == "Status":
@@ -624,7 +589,6 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     elif text == "Main Menu":
         await start(update, context)
 
-    # Admin tools
     elif text == "User Stats":
         await admin_stats(update, context)
     elif text == "User List":
@@ -649,10 +613,6 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await admin_health(update, context)
     elif text == "Server Performance":
         await admin_performance(update, context)
-
-
-# ── Advanced Admin Handlers ──────────────────────────────────────────────────
-
 
 
 async def admin_toggle_maintenance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -683,12 +643,10 @@ async def admin_performance(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if update.effective_user.id != config.ADMIN_ID:
         return
 
-    # Gather stats
     cpu = psutil.cpu_percent(interval=1)
     ram = psutil.virtual_memory()
     disk = psutil.disk_usage('/')
     
-    # Calculate uptime
     boot_time = psutil.boot_time()
     uptime_seconds = time.time() - boot_time
     days, rem = divmod(int(uptime_seconds), 86400)
@@ -739,8 +697,6 @@ async def admin_backup_db(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         if os.path.exists(backup_path):
             os.remove(backup_path)
 
-
-# ── Broadcast Conversation ───────────────────────────────────────────────────
 
 BROADCAST_MSG, BROADCAST_CONFIRM = range(1, 3)
 
@@ -809,8 +765,6 @@ async def broadcast_send(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     return ConversationHandler.END
 
 
-# ── Find & Ban Handlers ──────────────────────────────────────────────────────
-
 async def admin_handle_matric_actions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle text input for Find/Ban in the admin context."""
     if update.effective_user.id != config.ADMIN_ID:
@@ -823,7 +777,7 @@ async def admin_handle_matric_actions(update: Update, context: ContextTypes.DEFA
     text = raw_text.upper()
     
     import re
-    if not re.match(r"^[A-Z]\d{8}$", text): # Case-insensitive check
+    if not re.match(r"^[A-Z]\d{8}$", text):
         if context.user_data.get("admin_action"):
             await update.message.reply_text("❌ *Invalid format.* Please enter a valid Matric ID (e.g. I24107504):", parse_mode="Markdown")
         return
@@ -844,7 +798,7 @@ async def admin_handle_matric_actions(update: Update, context: ContextTypes.DEFA
             for user in users:
                 user_to_update = await session.get(User, user.id)
                 user_to_update.is_banned = not user_to_update.is_banned
-                new_status = user_to_update.is_banned # Capture the new state
+                new_status = user_to_update.is_banned
             await session.commit()
         
         status_text = "banned 🚫" if new_status else "unbanned ✅"
@@ -855,7 +809,6 @@ async def admin_handle_matric_actions(update: Update, context: ContextTypes.DEFA
         context.user_data["admin_action"] = None
         return
 
-    # Default action: Find (show details for all associated accounts)
     response = f"*👤 User Details for {text}* ({len(users)} account(s))\n\n"
     for i, user in enumerate(users, 1):
         response += (
@@ -868,9 +821,6 @@ async def admin_handle_matric_actions(update: Update, context: ContextTypes.DEFA
     
     await update.message.reply_text(response, parse_mode="Markdown", reply_markup=keyboards.admin_menu())
     context.user_data["admin_action"] = None
-
-
-# ── ConversationHandlers (exported for bot.py) ────────────────────────────────
 
 def broadcast_conversation() -> ConversationHandler:
     return ConversationHandler(

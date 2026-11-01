@@ -1,14 +1,8 @@
-"""
-Assignment Notifier Bot — Entry Point
-────────────────────────────────────────────────────────────────────────────────
-Run:  python bot.py
-Env:  Copy .env.example → .env and fill in BOT_TOKEN and FERNET_KEY.
-────────────────────────────────────────────────────────────────────────────────
-"""
+"""Assignment Notifier Bot entry point."""
 import sys
 import logging
 
-# Force UTF-8 encoding for Windows terminals
+# Force UTF-8 output on Windows consoles to avoid UnicodeEncodeError with emoji logs.
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding='utf-8')
@@ -43,7 +37,6 @@ from src.handlers import (
 from src.jobs import poll_all_users, send_daily_logs
 from src.logging_utils import log_activity, user_ref
 
-# ── Logging ───────────────────────────────────────────────────────────────────
 import os
 os.makedirs("logs", exist_ok=True)
 
@@ -59,7 +52,7 @@ logging.basicConfig(
         RotatingFileHandler(
             config.LOG_FILE_PATH, 
             encoding="utf-8", 
-            maxBytes=5 * 1024 * 1024,  # 5 MB
+            maxBytes=5 * 1024 * 1024,
             backupCount=0
         )
     ]
@@ -106,18 +99,15 @@ def _seconds_until_next_poll_tick(interval_seconds: int) -> float:
     midnight_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
     elapsed_seconds = (now_local - midnight_local).total_seconds()
     remainder = elapsed_seconds % interval_seconds
-    # If we're exactly on the boundary, run immediately.
     return (interval_seconds - remainder) % interval_seconds
 
 
-# ── Startup hook ──────────────────────────────────────────────────────────────
 async def configure_runtime(app: Application) -> None:
     """Configure command list and recurring jobs (safe to call multiple times)."""
     if app.bot_data.get("runtime_configured"):
         return
     app.bot_data["runtime_configured"] = True
 
-    # Register bot command list (shown in Telegram menu)
     try:
         await app.bot.set_my_commands(
             [
@@ -146,7 +136,6 @@ async def configure_runtime(app: Application) -> None:
     first_poll_in = _seconds_until_next_poll_tick(poll_interval)
     next_poll_local = datetime.now(config.LOCAL_TZ) + timedelta(seconds=first_poll_in)
 
-    # Schedule periodic polling once.
     if not app.job_queue.get_jobs_by_name("poll_all_users"):
         app.job_queue.run_repeating(
             poll_all_users,
@@ -155,7 +144,6 @@ async def configure_runtime(app: Application) -> None:
             name="poll_all_users",
         )
 
-    # Schedule daily activity log delivery once (default 08:00 Asia/Kuala_Lumpur).
     from datetime import time
     daily_log_time = time(
         hour=config.DAILY_LOG_HOUR,
@@ -201,7 +189,6 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text("Input too long. Please send a shorter message.")
         raise ApplicationHandlerStop()
     
-    # --- Activity Logging (Sensitive Data Masking) ---
     safe_buttons = [
         "Check Now", "Status", "Help", "Register", "Logout", "Main Menu",
         "User Stats", "User List", "Poll All Now", "View Logs", "Broadcast",
@@ -228,7 +215,6 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     actor_ref = user_ref(actor_name, user_id)
     logger.info("Activity: user_id=%s ref=%s -> %s", user_id, actor_ref, safe_log_text)
 
-    # --- New Activity Log (Clean Format) ---
     action = "MSG"
     details = safe_log_text
     
@@ -248,31 +234,25 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         action = "TEXT_INPUT"
         details = text
 
-    # Use first_name for the log as requested (Radzi)
     first_name = update.effective_user.first_name or "Unknown"
     log_activity(first_name, user_id, action, f"user_id={user_id} | {details}")
 
-    # 1. Anti-Spam (1 second)
     now = datetime.now(timezone.utc).timestamp()
     last_action = context.user_data.get("last_action_time", 0)
     if now - last_action < config.GLOBAL_ANTI_SPAM_INTERVAL:
         raise ApplicationHandlerStop()
     context.user_data["last_action_time"] = now
 
-    # Skip maintenance/ban for Admin
     if user_id == config.ADMIN_ID:
         return
 
-    # 2. Maintenance Mode
     if await check_maintenance(update, context):
         raise ApplicationHandlerStop()
 
-    # 3. Ban Check
     if await check_banned(user_id):
         raise ApplicationHandlerStop()
 
 
-# ── Application setup ─────────────────────────────────────────────────────────
 def build_app() -> Application:
     app = (
         Application.builder()
@@ -282,15 +262,13 @@ def build_app() -> Application:
         .build()
     )
 
-    # Global check first
+    # Group -1 runs before conversation and command handlers so rate limits and bans apply globally.
     app.add_handler(TypeHandler(Update, global_check), group=-1)
 
-    # Conversation flows (registered first — they take priority)
     app.add_handler(register_conversation())
     app.add_handler(unregister_conversation())
     app.add_handler(broadcast_conversation())
 
-    # Slash commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("status", status))
@@ -299,7 +277,6 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("health", admin_only(admin_health)))
     app.add_handler(CommandHandler("admin", admin_only(admin_panel)))
 
-    # Keyboard button taps
     app.add_handler(
         MessageHandler(
             filters.Regex(r"^(Check Now|Status|Help|Register|Logout|Main Menu|User Stats|User List|Poll All Now|View Logs|Broadcast|Find User|Ban/Unban|Backup DB|Maint. Mode|Health|Server Performance)$"),
@@ -307,12 +284,10 @@ def build_app() -> Application:
         )
     )
 
-    # Callbacks
     from src.handlers import how_it_works_callback, help_back_callback
     app.add_handler(CallbackQueryHandler(how_it_works_callback, pattern="^how_it_works$"))
     app.add_handler(CallbackQueryHandler(help_back_callback, pattern="^help_back$"))
 
-    # Admin text handler (for matric lookups)
     app.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
@@ -322,8 +297,6 @@ def build_app() -> Application:
 
     return app
 
-
-# ── Web Runtime & Self-Pinger ─────────────────────────────────────────────────
 
 async def self_pinger() -> None:
     """Pings the bot's public URL every 14 minutes when configured."""
@@ -366,7 +339,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     """Log the error and send a telegram message to notify the developer."""
     logger.error("Exception while handling an update:", exc_info=context.error)
 
-    # Optionally notify the user
     if isinstance(update, Update) and update.effective_message:
         from src import strings
         await update.effective_message.reply_text(
@@ -374,36 +346,31 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
             parse_mode="Markdown"
         )
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+
 async def run_bot() -> None:
     """Main async entry point for the bot and web server."""
     logger.info("🚀  LMS Assignment Notifier starting…")
     warn_sensitive_local_files()
     
-    # 1. Start web server immediately so health probes can reach the bot.
+    # Bind health check port before DB init so platform readiness probes succeed during cold starts.
     await start_web_server()
 
-    # 2. Initialize Database
     from src.database import init_db
     await init_db()
     
-    # 3. Initialize Bot
     app = build_app()
     app.add_error_handler(error_handler)
     
-    # 4. Start Self-Pinger task
     asyncio.create_task(self_pinger())
     
-    # 4. Run Bot Polling
     async with app:
         await app.initialize()
-        # In manual lifecycle mode, post_init callback is not invoked automatically.
+        # Manual lifecycle mode bypasses Application.post_init, so run configure_runtime explicitly.
         await configure_runtime(app)
         await app.start()
         logger.info("📡 Bot is now polling...")
         await app.updater.start_polling(drop_pending_updates=True)
         
-        # Keep the loop alive
         while True:
             await asyncio.sleep(3600)
 

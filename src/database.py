@@ -17,14 +17,12 @@ from src.models import Base  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-# Ensure data directory and SQLite path handling
 is_sqlite = not config.DATABASE_URL
 if is_sqlite:
     os.makedirs(os.path.dirname(config.DB_PATH), exist_ok=True)
     db_url = f"sqlite+aiosqlite:///{config.DB_PATH}"
 else:
-    # Hosted DATABASE_URL values usually start with postgres:// or postgresql://
-    # SQLAlchemy 2.0+ with create_async_engine MUST use postgresql+asyncpg://
+    # SQLAlchemy 2.0 async engine requires the postgresql+asyncpg:// scheme.
     db_url = config.DATABASE_URL
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
@@ -40,7 +38,6 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         if is_sqlite:
-            # SQLite migration is run sync via sqlite3 helper below.
             pass
         else:
             await _migrate_db_postgres(conn)

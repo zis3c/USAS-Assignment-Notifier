@@ -57,8 +57,6 @@ class LMSAuthenticationError(Exception):
     """Raised when LMS authentication fails."""
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
 def is_login_url(url: str) -> bool:
     lowered = url.lower()
     return "/login/" in lowered or "/login/index.php" in lowered
@@ -157,22 +155,14 @@ def extract_user_name(html: str) -> Optional[str]:
     def clean_name(n: str) -> str:
         if not n:
             return n
-        # Standardize whitespace and remove non-breaking spaces (\xa0)
         n = n.replace('\xa0', ' ').strip()
-        # 1. Remove common greetings
         n = re.sub(r"^(?:Hi|Hello|Selamat\s+\w+|Welcome)[,\s]+", "", n, flags=re.I)
-        # 2. Remove leading timestamps like "10:30 AM " or "10:30PM"
         n = re.sub(r"^\d{1,2}:\d{2}\s*(?:AM|PM)[\s,]*", "", n, flags=re.I)
-        # 3. Handle naked AM/PM artifacts
-        # If it starts with "AM " or "PM " (with space), strip it
         n = re.sub(r"^(?:AM|PM)\s+", "", n, flags=re.I)
-        # If it's smashed (e.g., "AMAHMAD"), strip only if followed by another Uppercase (e.g., "AHMAD")
-        # to avoid stripping "Amir" or "Amanda"
+        # Strip glued AM/PM prefix (e.g. "AMAHMAD") only before two uppercase letters so "Amir" is preserved.
         n = re.sub(r"^(?:AM|PM)(?=[A-Z][A-Z])", "", n, flags=re.I)
-        # Final trim of symbols
         return n.strip(" !👋").strip()
 
-    # 1. Login Info: "You are logged in as Full Name" (Most reliable for full name)
     login_info = soup.find("div", class_="logininfo")
     if login_info:
         name_link = login_info.find("a", href=lambda h: h and ("user/profile.php" in h or "user/view.php" in h))
@@ -181,7 +171,6 @@ def extract_user_name(html: str) -> Optional[str]:
             if name:
                 return name
 
-    # 2. Extract userId from M.cfg JS block and find its profile link
     user_id = None
     js_match = re.search(r'"userId":(\d+)', html)
     if js_match:
@@ -194,7 +183,6 @@ def extract_user_name(html: str) -> Optional[str]:
             if name:
                 return name
 
-    # 3. Greeting Header : "Hi, NAME! 👋" (Usually first name only)
     header = soup.find("div", class_=re.compile(r"headerandnav"))
     if header:
         h2 = header.find("h2")
@@ -204,11 +192,9 @@ def extract_user_name(html: str) -> Optional[str]:
             if match:
                 return clean_name(match.group(1))
 
-    # 3. Fallback: User dropdown toggle aria-label or title
     user_toggle = soup.find(id="user-menu-toggle")
     if user_toggle:
         label = user_toggle.get("aria-label", "")
-        # "User menu for Full Name"
         match = re.search(r"(?:for|of|untuk)\s+(.+)$", label, re.IGNORECASE)
         if match:
             return clean_name(match.group(1))
@@ -408,8 +394,6 @@ def extract_html_from_result(data: Any) -> Optional[str]:
             return data[key]
     return None
 
-
-# ── Client ────────────────────────────────────────────────────────────────────
 
 @dataclass
 class FetchResult:
