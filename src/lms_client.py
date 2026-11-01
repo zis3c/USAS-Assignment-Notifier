@@ -155,7 +155,8 @@ def extract_user_name(html: str) -> Optional[str]:
     soup = BeautifulSoup(html, "html.parser")
 
     def clean_name(n: str) -> str:
-        if not n: return n
+        if not n:
+            return n
         # Standardize whitespace and remove non-breaking spaces (\xa0)
         n = n.replace('\xa0', ' ').strip()
         # 1. Remove common greetings
@@ -177,7 +178,8 @@ def extract_user_name(html: str) -> Optional[str]:
         name_link = login_info.find("a", href=lambda h: h and ("user/profile.php" in h or "user/view.php" in h))
         if name_link:
             name = clean_name(name_link.get_text(strip=True))
-            if name: return name
+            if name:
+                return name
 
     # 2. Extract userId from M.cfg JS block and find its profile link
     user_id = None
@@ -189,7 +191,8 @@ def extract_user_name(html: str) -> Optional[str]:
         user_link = soup.find("a", href=re.compile(fr'user/(?:view|profile)\.php\?id={user_id}'))
         if user_link:
             name = clean_name(user_link.get_text(strip=True))
-            if name: return name
+            if name:
+                return name
 
     # 3. Greeting Header : "Hi, NAME! 👋" (Usually first name only)
     header = soup.find("div", class_=re.compile(r"headerandnav"))

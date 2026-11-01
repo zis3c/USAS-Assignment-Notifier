@@ -29,7 +29,6 @@ from src.handlers import (
     admin_health,
     admin_logs,
     admin_panel,
-    admin_toggle_maintenance,
     broadcast_conversation,
     button_router,
     check_now,
@@ -41,9 +40,6 @@ from src.handlers import (
     check_banned,
     check_maintenance,
 )
-from src.database import AsyncSessionLocal
-from src.models import User, SystemSettings
-from sqlalchemy import select
 from src.jobs import poll_all_users, send_daily_logs
 from src.logging_utils import log_activity, user_ref
 
@@ -51,7 +47,7 @@ from src.logging_utils import log_activity, user_ref
 import os
 os.makedirs("logs", exist_ok=True)
 
-from logging.handlers import RotatingFileHandler
+from logging.handlers import RotatingFileHandler  # noqa: E402
 
 log_format = "%(asctime)s  %(levelname)-8s  %(name)s — %(message)s"
 logging.basicConfig(
@@ -268,12 +264,10 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     # 2. Maintenance Mode
-    from src.handlers import check_maintenance
     if await check_maintenance(update, context):
         raise ApplicationHandlerStop()
 
     # 3. Ban Check
-    from src.handlers import check_banned
     if await check_banned(user_id):
         raise ApplicationHandlerStop()
 

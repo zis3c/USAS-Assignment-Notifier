@@ -8,7 +8,6 @@ import hashlib
 import os
 import random
 import sqlite3
-from typing import Iterable
 from urllib.parse import urlparse
 
 import psycopg2

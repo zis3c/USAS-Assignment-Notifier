@@ -1,0 +1,28 @@
+# gitleaks configuration.
+#
+# The default ruleset already covers the common credential formats. This file
+# only adds allowlists for test fixtures and documentation examples that look
+# secret-shaped but are not real secrets. Real credentials must never be
+# committed; if a scan reports a genuine leak, rotate the secret and purge it
+# from history rather than adding an allowlist entry.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Synthetic test values in docs, tests and examples."
+paths = [
+  '''tests/''',
+  '''docs/''',
+  '''\.env\.example$''',
+  '''dashboard-pgsource\.txt$''',
+  '''login-pgsource\.txt$''',
+]
+regexTarget = "match"
+regexes = [
+  '''example\.test''',
+  '''example\.com''',
+  '''DEMO_ONLY''',
+  '''dummytoken''',
+  '''fallback-insecure-dev-key''',
+]

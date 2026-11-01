@@ -12,8 +12,8 @@ def get_utc_now() -> datetime:
     """Return a naive UTC datetime."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
-from src import config
-from src.models import Base
+from src import config  # noqa: E402
+from src.models import Base  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +153,6 @@ def _migrate_db_sqlite() -> None:
         "ALTER TABLE user_events ADD COLUMN reminder_2d_sent_at DATETIME",
         "ALTER TABLE user_events ADD COLUMN reminder_1d_sent_at DATETIME",
     ]
-    import sqlite3
     conn = sqlite3.connect(config.DB_PATH)
     try:
         for sql in migrations:

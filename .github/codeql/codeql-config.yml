@@ -1,0 +1,9 @@
+name: "CodeQL config"
+
+paths-ignore:
+  - .venv
+  - .tmp-audit-venv
+  - tmp
+  - data
+  - logs
+  - "**/*.min.js"

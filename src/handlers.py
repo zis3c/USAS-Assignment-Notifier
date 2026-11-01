@@ -8,7 +8,6 @@ import time
 from datetime import datetime, timedelta, timezone
 import psutil
 
-from cryptography.fernet import InvalidToken
 from sqlalchemy import delete, select
 from telegram import Update
 from telegram.error import TelegramError
@@ -21,10 +20,10 @@ from telegram.ext import (
 )
 
 from src import config, keyboards, strings
-from src.crypto import decrypt_text, encrypt_text
+from src.crypto import encrypt_text
 from src.database import AsyncSessionLocal, get_utc_now
 from src.jobs import poll_user_id
-from src.lms_client import LMSAuthenticationError, LMSClient, extract_user_name, extract_sesskey
+from src.lms_client import LMSClient, extract_user_name, extract_sesskey
 from src.models import User, SystemSettings, UserEvent
 from src.logging_utils import log_activity
 
@@ -763,7 +762,7 @@ async def broadcast_preview(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     context.user_data["broadcast_text"] = msg_text
     
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).where(User.active == True))
+        result = await session.execute(select(User).where(User.active.is_(True)))
         users = result.scalars().all()
         count = len(users)
 
@@ -785,7 +784,7 @@ async def broadcast_send(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return ConversationHandler.END
 
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).where(User.active == True))
+        result = await session.execute(select(User).where(User.active.is_(True)))
         users = result.scalars().all()
     
     count = 0

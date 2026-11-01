@@ -1,5 +1,4 @@
 """SQLAlchemy ORM models for the Assignment Notifier bot."""
-from datetime import datetime, timezone
 from src.database import get_utc_now
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, LargeBinary, String, UniqueConstraint

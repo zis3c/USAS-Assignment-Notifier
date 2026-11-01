@@ -2,10 +2,14 @@ name: Unit Tests
 
 on:
   pull_request:
+    branches: [ "main" ]
   push:
-    branches:
-      - main
+    branches: [ "main" ]
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -14,12 +18,12 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
           cache: "pip"
 
       - name: Install dependencies
@@ -29,3 +33,6 @@ jobs:
 
       - name: Run syntax check
         run: python -m py_compile $(git ls-files '*.py')
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
