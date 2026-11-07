@@ -451,7 +451,6 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
             except Exception as exc:
                 logger.warning("Submission-status check failed for user %s: %s", user_id, exc)
 
-        # Update display name if freshly parsed
         if fetch_result.dashboard_html:
             parsed_name = extract_user_name(fetch_result.dashboard_html)
             if parsed_name:
