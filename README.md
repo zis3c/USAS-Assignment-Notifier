@@ -9,7 +9,7 @@
 ![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)
 
 <div align="center">
-  <img src="preview.PNG" alt="USAS Assignment Notifier Preview" width="200">
+  <img src="assets/preview.png" alt="USAS Assignment Notifier Preview" width="200">
 </div>
 
 [**Try it live on Telegram**](https://t.me/usas_duebot) | [**Video tutorial on YouTube**](https://www.youtube.com/watch?v=Szl-VaEdc08&pp=ygULdXNhcyBkdWVib3Q%3D)
@@ -19,7 +19,11 @@ A secure async Telegram bot for USAS students that monitors LMS assignments and 
 > [!NOTE]
 > **Security-first design**: LMS credentials and session cookies are encrypted with Fernet before storage, and plaintext credentials are only used in-memory during login.
 
-## Features
+## Core Features & Capabilities
+
+<p align="center">
+  <img src="./assets/features-overview.png" alt="USAS DueBot feature overview" width="100%">
+</p>
 
 - Async event-driven polling with `python-telegram-bot`, `asyncio`, and `aiohttp`.
 - Secure LMS account linking:
