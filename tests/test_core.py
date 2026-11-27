@@ -19,6 +19,7 @@ from src.jobs import (  # noqa: E402
     _format_title,
     _is_pending,
     _next_poll_at_from_now,
+    _retention_cutoff,
     _should_send_reminder,
 )
 from src.lms_client import (  # noqa: E402
@@ -55,6 +56,10 @@ class CryptoAndLoggingTests(unittest.TestCase):
         self.assertEqual(ref1, ref2)
         self.assertEqual(len(ref1), 12)
         self.assertNotEqual(ref1, ref3)
+
+    def test_retention_cutoff_uses_configured_days(self):
+        now = datetime(2026, 1, 1, 12, 0, 0)
+        self.assertEqual((now - _retention_cutoff(now)).days, 90)
 
 
 class LMSClientParsingTests(unittest.TestCase):

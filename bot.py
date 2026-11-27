@@ -34,7 +34,7 @@ from src.handlers import (
     check_banned,
     check_maintenance,
 )
-from src.jobs import poll_all_users, send_daily_logs
+from src.jobs import poll_all_users, purge_inactive_users, send_daily_logs
 from src.logging_utils import log_activity, user_ref
 
 import os
@@ -158,6 +158,13 @@ async def configure_runtime(app: Application) -> None:
             name="send_daily_logs",
         )
 
+    if not app.job_queue.get_jobs_by_name("purge_inactive_users"):
+        app.job_queue.run_daily(
+            purge_inactive_users,
+            time=time(hour=3, minute=0, tzinfo=config.LOCAL_TZ),
+            name="purge_inactive_users",
+        )
+
     logger.info(
         "Scheduler started - polling every %ss (next at %s), daily logs at %02d:%02d (%s)",
         poll_interval,
@@ -210,7 +217,7 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     elif is_command:
         safe_log_text = f"[COMMAND] {command_name}"
     else:
-        safe_log_text = text
+        safe_log_text = f"[TEXT len={len(text)}]"
 
     actor_ref = user_ref(actor_name, user_id)
     logger.info("Activity: user_id=%s ref=%s -> %s", user_id, actor_ref, safe_log_text)
@@ -232,7 +239,7 @@ async def global_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         details = "[MASKED]"
     else:
         action = "TEXT_INPUT"
-        details = text
+        details = safe_log_text
 
     first_name = update.effective_user.first_name or "Unknown"
     log_activity(first_name, user_id, action, f"user_id={user_id} | {details}")

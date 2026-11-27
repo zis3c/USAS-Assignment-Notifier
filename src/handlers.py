@@ -227,6 +227,11 @@ async def register_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             return ConversationHandler.END
 
     await update.message.reply_text(
+        strings.PRIVACY_NOTICE,
+        parse_mode="Markdown",
+        reply_markup=keyboards.cancel_menu(),
+    )
+    await update.message.reply_text(
         strings.PROMPT_STUDENT_ID,
         parse_mode="Markdown",
         reply_markup=keyboards.cancel_menu(),

@@ -20,8 +20,10 @@ For user-facing bot support, you can also reach the team via Telegram: `@STEMUSA
 
 ## Security Practices in This Project
 
-- LMS passwords are encrypted using Fernet before storage.
+- LMS passwords are encrypted using Fernet before storage. This is a deliberate trade-off: the bot needs the password to re-login when the LMS session expires.
 - Session cookies are stored encrypted when persisted.
+- Users see a privacy notice before entering credentials, and `/logout` deletes their account and assignment data.
+- Accounts with no successful LMS check for 90 days are deleted automatically (`INACTIVE_USER_RETENTION_DAYS`).
 - Sensitive values are loaded from environment variables.
 - LMS TLS verification is enabled by default (insecure TLS must be explicitly enabled via `LMS_ALLOW_INSECURE_SSL=true`).
 - Registration password messages are deleted after processing when possible.
@@ -29,12 +31,18 @@ For user-facing bot support, you can also reach the team via Telegram: `@STEMUSA
 - Free-text user messages are redacted in activity logs.
 - Submission-status checks are used to avoid sending reminders for already-submitted assignments.
 
+## Residual Risk
+
+Encrypting stored passwords does not protect against a full server compromise if the Fernet key is stored on the same host. The key and database should be separated where possible (for example, a secret manager or a root-only environment file), backups should be protected, and the risk should be explained to users. If the server or key is exposed, rotate `FERNET_KEY` and force affected users to register again.
+
 ## Production Hardening Checklist
 
 - Keep `LMS_ALLOW_INSECURE_SSL=false` in production.
 - Use `LMS_CA_BUNDLE` instead of disabling TLS verification when custom CA trust is required.
 - Never store `service_account.json` in deploy/build contexts; rotate the key immediately if exposure is suspected.
 - Ensure Docker builds use `.dockerignore` so `.env`, DB files, and logs are not baked into images.
+- Keep `.env` root-only (`chmod 600`) and never include it in backups or demo archives.
+- Review `INACTIVE_USER_RETENTION_DAYS` and the purge job logs regularly.
 
 ## Scope Notes
 

@@ -9,7 +9,7 @@ from html import escape
 from typing import Optional
 
 from cryptography.fernet import InvalidToken
-from sqlalchemy import select, text
+from sqlalchemy import and_, delete, or_, select, text
 
 from src import config, strings
 from src.crypto import decrypt_text, encrypt_text
@@ -43,6 +43,12 @@ def _to_utc_naive(value: Optional[datetime]) -> Optional[datetime]:
     if value.tzinfo is None:
         return value
     return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def _retention_cutoff(now: Optional[datetime] = None) -> datetime:
+    """Return the oldest activity timestamp that is still kept."""
+    days = max(1, int(config.INACTIVE_USER_RETENTION_DAYS))
+    return (now or get_utc_now()) - timedelta(days=days)
 
 
 def _to_local_display(value: datetime) -> str:
@@ -582,6 +588,27 @@ async def poll_user_id(user_id: int, bot, force_pending_reminders: bool = False)
         reminder_count=len(sent_reminder_ids),
         pending_count=pending_count,
     )
+
+
+async def purge_inactive_users(_context=None) -> None:
+    """Job: delete users inactive beyond the retention window."""
+    cutoff = _retention_cutoff()
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(User.id).where(
+                or_(
+                    and_(User.last_checked_at.is_not(None), User.last_checked_at < cutoff),
+                    and_(User.last_checked_at.is_(None), User.created_at < cutoff),
+                )
+            )
+        )
+        user_ids = list(result.scalars().all())
+        if not user_ids:
+            return
+        await session.execute(delete(UserEvent).where(UserEvent.user_id.in_(user_ids)))
+        await session.execute(delete(User).where(User.id.in_(user_ids)))
+        await session.commit()
+    logger.info("Retention purge removed %s inactive user(s).", len(user_ids))
 
 
 async def send_daily_logs(context) -> None:

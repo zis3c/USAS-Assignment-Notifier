@@ -26,6 +26,13 @@ HELP_DETAIL = (
 )
 
 
+PRIVACY_NOTICE = (
+    "*Privacy Notice*\n\n"
+    "This bot stores your LMS password *encrypted* so it can check assignments automatically. "
+    "Use /logout anytime to delete your account and data. Inactive accounts are removed after 90 days.\n\n"
+    "By continuing, you agree to this storage."
+)
+
 PROMPT_STUDENT_ID = (
     "Step 1/2\n\n"
     "Please type your *Matric Number*:\n"

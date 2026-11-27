@@ -17,7 +17,7 @@
 A secure async Telegram bot for USAS students that monitors LMS assignments and sends deadline reminders at 3 days, 2 days, and within 24 hours.
 
 > [!NOTE]
-> **Security-first design**: LMS credentials and session cookies are encrypted with Fernet before storage, and plaintext credentials are only used in-memory during login.
+> **Security-first design**: LMS credentials and session cookies are encrypted with Fernet before storage, and plaintext credentials are only used in-memory during login. Inactive accounts are deleted after 90 days. See [PRIVACY.md](PRIVACY.md).
 
 ## Core Features & Capabilities
 
@@ -115,6 +115,7 @@ Polling and reminders:
 - `REMINDER_INTERVAL_SECONDS` - Generic reminder cooldown
 - `REGISTER_MAX_ATTEMPTS` - Failed registration-login attempts before lockout
 - `REGISTER_LOCKOUT_SECONDS` - Lockout duration after too many failed attempts
+- `INACTIVE_USER_RETENTION_DAYS` - Days before an inactive account is deleted (default `90`)
 
 Admin and logs:
 
@@ -245,6 +246,7 @@ Logout behavior:
 - [INSTALLATION.md](INSTALLATION.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [SECURITY.md](SECURITY.md)
+- [PRIVACY.md](PRIVACY.md)
 - [LICENSE](LICENSE)
 
 <center>Built with 🔥 by <b>@zis3c</b></center>
